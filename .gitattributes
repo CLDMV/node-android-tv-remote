@@ -1,0 +1,8 @@
+# Force LF endings for all relevant files
+*.js text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.txt text eol=lf

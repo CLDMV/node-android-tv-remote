@@ -1,0 +1,15 @@
+{
+	"useTabs": true,
+	"tabWidth": 2,
+	"printWidth": 140,
+	"trailingComma": "none",
+	"quoteProps": "preserve",
+	"overrides": [
+		{
+			"files": "*.xml",
+			"options": {
+				"printWidth": 300
+			}
+		}
+	]
+}

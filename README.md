@@ -22,6 +22,39 @@ A Node.js module for controlling Android TV devices via ADB. Supports sending ke
 
 ## Installation
 
+This module requires the Android Debug Bridge (ADB) binary to be installed and available in your system PATH.
+
+### Install ADB
+
+#### Windows
+
+1. Download the [SDK Platform Tools for Windows](https://developer.android.com/studio/releases/platform-tools).
+2. Extract the ZIP file.
+3. Add the extracted folder to your system PATH (so you can run `adb` from any terminal).
+4. Test by running `adb version` in Command Prompt.
+
+#### macOS
+
+1. Download the [SDK Platform Tools for Mac](https://developer.android.com/studio/releases/platform-tools).
+2. Extract the ZIP file.
+3. Move the extracted folder to a location like `/usr/local/bin` or add it to your PATH.
+4. Test by running `adb version` in Terminal.
+
+#### Linux
+
+1. Download the [SDK Platform Tools for Linux](https://developer.android.com/studio/releases/platform-tools).
+2. Extract the ZIP file.
+3. Move the extracted folder to `/usr/local/bin` or add it to your PATH.
+4. You may also install via your package manager:
+   - Ubuntu/Debian: `sudo apt-get install android-tools-adb`
+   - Fedora/Red Hat: `sudo dnf install android-tools`
+   - CentOS/yum: `sudo yum install android-tools`
+5. Test by running `adb version` in your shell.
+
+> **Note:** You must accept the ADB authorization prompt on your Android TV device the first time you connect.
+
+### Install the Node Module
+
 ```sh
 npm install android-tv-remote
 ```

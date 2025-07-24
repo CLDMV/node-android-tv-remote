@@ -4,7 +4,8 @@
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"main": "src/lib/android-tv-remote.js",
 	"scripts": {
-		"test": "jest"
+		"test": "jest",
+		"postinstall": "node scripts/postinstall.js"
 	},
 	"keywords": [
 		"android",

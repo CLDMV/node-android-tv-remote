@@ -498,7 +498,9 @@ module.exports = function (config) {
 		 * @example
 		 * if (remote.isConnected) { ... }
 		 */
-		isConnected: isConnected(),
+		get isConnected() {
+			return isConnected();
+		},
 		/**
 		 * Get or set Android settings via ADB.
 		 * @public

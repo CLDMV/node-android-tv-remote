@@ -4,6 +4,7 @@ const Remote = require("../src/lib/android-tv-remote");
 const TEST_IP = process.env.ANDROID_TV_IP || "192.168.1.100";
 const TEST_PORT = process.env.ANDROID_TV_PORT ? parseInt(process.env.ANDROID_TV_PORT, 10) : 5555;
 
+/** @type {import('../src/lib/android-tv-remote').RemoteConfig} */
 const config = {
 	ip: TEST_IP,
 	port: TEST_PORT,

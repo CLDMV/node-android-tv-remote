@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Android TV Remote module.
  * @module android-tv-remote
@@ -137,36 +138,13 @@ const remoteKeys = require("../data/remote-keys.json");
  * @function
  * @public
  * @param {RemoteConfig} config - Configuration for the remote.
- * @param {boolean} [config.maintainConnection=true] - Whether to maintain the ADB connection with a heartbeat.
- * @param {number} [config.heartbeatInterval=30000] - Heartbeat interval in ms (default 30s).
  * @returns {Remote}
  */
 module.exports = function (config) {
-	/**
-	 * On initialization, check if already connected to the device and set internal state.
-	 * This ensures the internal state is correct if the device is already connected.
-	 */
-	(async () => {
-		try {
-			const status = await getConnectionStatus(true);
-			if (status === "connected") {
-				connected = true;
-				if (!quiet) logWithTime("Already connected to " + host + " (on init)");
-				startHeartbeat();
-			}
-		} catch (e) {
-			// Ignore errors on init
-		}
-	})();
-	/**
-	 * @type {RemoteConfig}
-	 */
-	/**
-	 * Initializes and configures the Android TV Remote instance.
-	 * Handles connection, persistent heartbeat, and auto-reconnect logic.
-	 * @returns {Remote}
-	 */
-	config = config || {};
+	// Ensure config is an object and has the required 'ip' property
+	if (!config || typeof config !== "object" || !config.ip) {
+		throw new Error("Missing required 'ip' property in RemoteConfig.");
+	}
 	const ip = config.ip;
 	const port = config.port || 5555;
 	const inputDevice = config.inputDevice || "/dev/input/event0";
@@ -183,6 +161,23 @@ module.exports = function (config) {
 	const maintainConnection = config.maintainConnection !== false; // default true
 	const heartbeatInterval = typeof config.heartbeatInterval === "number" ? config.heartbeatInterval : 30000;
 	let heartbeatTimer = null;
+
+	/**
+	 * On initialization, check if already connected to the device and set internal state.
+	 * This ensures the internal state is correct if the device is already connected.
+	 */
+	(async () => {
+		try {
+			const status = await getConnectionStatus(true);
+			if (status === "connected") {
+				connected = true;
+				if (!quiet) logWithTime("Already connected to " + host + " (on init)");
+				startHeartbeat();
+			}
+		} catch (e) {
+			// Ignore errors on init
+		}
+	})();
 
 	/**
 	 * Resets the disconnect timer if autoDisconnect is enabled.
@@ -503,7 +498,7 @@ module.exports = function (config) {
 		 * @example
 		 * if (remote.isConnected) { ... }
 		 */
-		isConnected,
+		isConnected: isConnected(),
 		/**
 		 * Get or set Android settings via ADB.
 		 * @public
@@ -567,16 +562,26 @@ module.exports = function (config) {
 		 * @public
 		 * @param {function(Error=, any=)=} [cb]
 		 * @returns {Promise|undefined}
+		 * @example
+		 * await remote.connect();
+		 * remote.connect((err) => { ... });
 		 */
-		connect: connectWrapped,
+		connect: /**
+		 * @type {(cb?: (err?: Error, result?: any) => any) => Promise<any> | undefined}
+		 */ (connectWrapped),
 
 		/**
 		 * Disconnect from the device. Supports both promise and callback styles.
 		 * @public
 		 * @param {function(Error=, any=)=} [cb]
 		 * @returns {Promise|undefined}
+		 * @example
+		 * await remote.disconnect();
+		 * remote.disconnect((err) => { ... });
 		 */
-		disconnect: disconnectWrapped,
+		disconnect: /**
+		 * @type {(cb?: (err?: Error, result?: any) => any) => Promise<any> | undefined}
+		 */ (disconnectWrapped),
 
 		/**
 		 * Send a keycode. Supports both promise and callback styles.
@@ -584,8 +589,13 @@ module.exports = function (config) {
 		 * @param {number} code
 		 * @param {function(Error=, any=)=} [cb]
 		 * @returns {Promise|undefined}
+		 * @example
+		 * await remote.inputKeycode(23);
+		 * remote.inputKeycode(23, (err) => { ... });
 		 */
-		inputKeycode: inputKeycodeWrapped,
+		inputKeycode: /**
+		 * @type {(code: number, cb?: (err?: Error, result?: any) => any) => Promise<any> | undefined}
+		 */ (inputKeycodeWrapped),
 
 		/**
 		 * All remote key functions support both promise and callback styles.

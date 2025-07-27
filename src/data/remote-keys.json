@@ -2,6 +2,7 @@
 	"home",
 	"wakeup",
 	"back",
+	"recall",
 	"menu",
 	"ok",
 	"select",
@@ -76,5 +77,10 @@
 	"mediaStepForward",
 	"mediaStepBackward",
 	"mediaAudioTrack",
-	"mediaTopMenu"
+	"mediaTopMenu",
+	"azmNetflix",
+	"azmPrime",
+	"azmDirecttv",
+	"azmPeacock",
+	"azmGuide"
 ]

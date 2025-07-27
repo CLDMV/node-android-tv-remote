@@ -266,5 +266,10 @@
 	"systemNavigationUp": 280,
 	"systemNavigationDown": 281,
 	"systemNavigationLeft": 282,
-	"systemNavigationRight": 283
+	"systemNavigationRight": 283,
+	"azmNetflix": 290,
+	"azmPrime": 291,
+	"azmDirecttv": 292,
+	"azmPeacock": 296,
+	"azmGuide": 297
 }

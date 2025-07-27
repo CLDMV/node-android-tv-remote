@@ -441,7 +441,33 @@ module.exports = function (config) {
 		return !!connected;
 	}
 
-	return {
+	/**
+	 * Returns a list of all available keyboard key function names on the live API (keyboard.key).
+	 * This inspects the actual keyboard.key object, so it always matches the real API surface, including all aliases and dynamic keys.
+	 * @returns {string[]}
+	 * @example
+	 * remote.getKeyboardKeys();
+	 */
+	function getKeyboardKeys() {
+		// 'this' is not bound, so we must access the constructed keyboard.key object
+		// Only return the top-level key names (not .keycode or .shift)
+		if (!this || !this.keyboard || !this.keyboard.key) return [];
+		return Object.keys(this.keyboard.key).filter((k) => typeof this.keyboard.key[k] === "function");
+	}
+
+	/**
+	 * Returns a list of all available press command names on the live API (press object), including aliases and dynamic keys.
+	 * This inspects the actual press object, so it always matches the real API surface.
+	 * @returns {string[]}
+	 * @example
+	 * remote.getPressCommands();
+	 */
+	function getPressCommands() {
+		if (!this || !this.press) return [];
+		return Object.keys(this.press).filter((k) => k !== "long" && typeof this.press[k] === "function");
+	}
+
+	const remoteApi = {
 		/**
 		 * Returns the current connection status as tracked by the module, or does a live check if requested.
 		 * @function
@@ -452,6 +478,24 @@ module.exports = function (config) {
 		 * await remote.getConnectionStatus(true); // live check
 		 */
 		getConnectionStatus,
+		/**
+		 * Returns a list of all available keyboard key function names on the live API (keyboard.key).
+		 * @returns {string[]}
+		 * @example
+		 * remote.getKeyboardKeys();
+		 */
+		getKeyboardKeys: function () {
+			return getKeyboardKeys.call(remoteApi);
+		},
+		/**
+		 * Returns a list of all available press command names on the live API (press object), including aliases and dynamic keys.
+		 * @returns {string[]}
+		 * @example
+		 * remote.getPressCommands();
+		 */
+		getPressCommands: function () {
+			return getPressCommands.call(remoteApi);
+		},
 		/**
 		 * Returns true if the module believes it is connected to the device.
 		 * @readonly
@@ -761,4 +805,5 @@ module.exports = function (config) {
 			)
 		}
 	};
+	return remoteApi;
 };

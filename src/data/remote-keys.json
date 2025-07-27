@@ -1,5 +1,6 @@
 [
 	"home",
+	"wakeup",
 	"back",
 	"menu",
 	"ok",
@@ -58,6 +59,7 @@
 	"numpadAdd",
 	"numpadDot",
 	"numpadComma",
+	"enter",
 	"numpadEnter",
 	"numpadEquals",
 	"numpadLeftParen",

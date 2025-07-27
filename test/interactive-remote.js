@@ -3,7 +3,7 @@
 // Usage: node test/interactive-remote.js
 
 const readline = require("readline");
-const AndroidTVSetup = require("../src/lib/adb/setup");
+const remote = require("../src/lib/android-tv-remote");
 
 /**
  * Prompts the user for input in the terminal.
@@ -23,8 +23,9 @@ function prompt(query) {
 }
 
 /**
- * Runs the interactive remote test.
+ * Runs the interactive remote test using the main remote module.
  * Prompts for IP/port, connects, and sends button presses.
+ * @returns {Promise<void>}
  */
 async function main() {
 	const ip = (await prompt("Enter device IP: ")).trim();
@@ -34,17 +35,16 @@ async function main() {
 		console.error("IP address is required.");
 		process.exit(1);
 	}
-	const setup = new AndroidTVSetup({ ip, port, quiet: false });
 	try {
-		await setup.connect();
+		await remote.connect({ ip, port });
 		console.log(`Connected to ${ip}:${port}`);
-		// List of buttons to press (as method names on setup.remote.press)
+		// List of buttons to press (as method names on remote.press)
 		const buttons = ["home", "up", "down", "left", "right", "ok", "back"];
 		for (let i = 0; i < buttons.length; i++) {
 			const btn = buttons[i];
-			if (setup.remote && setup.remote.press && typeof setup.remote.press[btn] === "function") {
+			if (remote.press && typeof remote.press[btn] === "function") {
 				console.log(`Pressing: ${btn}`);
-				await setup.remote.press[btn]();
+				await remote.press[btn]();
 			} else {
 				console.log(`Button '${btn}' not available.`);
 			}
@@ -56,10 +56,10 @@ async function main() {
 				await new Promise((res) => setTimeout(res, 500));
 			}
 		}
-		await setup.disconnect();
+		await remote.disconnect();
 		console.log("Test complete. Disconnected.");
 	} catch (err) {
-		if (setup.errorWithTime) setup.errorWithTime("Error:", err.message || err);
+		if (remote.errorWithTime) remote.errorWithTime("Error:", err.message || err);
 		else console.error("Error:", err.message || err);
 		process.exit(1);
 	}

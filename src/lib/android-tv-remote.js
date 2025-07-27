@@ -8,8 +8,12 @@
  * @property {number} [port=5555] - The port for ADB connection.
  * @property {string} [inputDevice="/dev/input/event0"] - The input device path.
  * @property {boolean} [autoConnect=true] - Whether to auto-connect on command.
- * @property {boolean} [autoDisconnect=true] - Whether to auto-disconnect after inactivity.
+ * @property {boolean} [autoDisconnect=false] - Whether to auto-disconnect after inactivity.
  * @property {number} [disconnectTimeout=10] - Inactivity timeout in seconds before disconnecting.
+ * @property {boolean} [maintainConnection=true] - Whether to maintain the ADB connection with a heartbeat.
+ * @property {number} [heartbeatInterval=30000] - Heartbeat interval in ms (default 30s).
+ * @property {number} [connectionCheckInterval=30000] - Interval in ms for periodic connection checks (default 30s).
+ * @property {boolean} [quiet=true] - Suppress connection log output if true.
  */
 /**
  * @typedef {Object} Remote
@@ -17,6 +21,8 @@
  * @property {function(function(Error=, any=)=): Promise|undefined} connect - Connect to the device. Supports both promise and callback styles.
  * @property {function(function(Error=, any=)=): Promise|undefined} disconnect - Disconnect from the device. Supports both promise and callback styles.
  * @property {function(number, function(Error=, any=)=): Promise|undefined} inputKeycode - Send a keycode to the device. Supports both promise and callback styles.
+ * @property {function(boolean=): Promise<"connected"|"disconnected"|"unknown">} getConnectionStatus - Returns the current connection status; optionally performs a live check.
+ * @property {boolean} isConnected - True if the module believes it is connected (internal state, not a live check).
  * @property {Object} press - Remote control key functions for Android TV remotes.
  * @property {Object} keyboard - Keyboard interface for all keys, with text and keycode fallback.
  * @property {Object} keyboard.key - Contains all key functions.
@@ -131,11 +137,18 @@ const remoteKeys = require("../data/remote-keys.json");
  * @function
  * @public
  * @param {RemoteConfig} config - Configuration for the remote.
+ * @param {boolean} [config.maintainConnection=true] - Whether to maintain the ADB connection with a heartbeat.
+ * @param {number} [config.heartbeatInterval=30000] - Heartbeat interval in ms (default 30s).
  * @returns {Remote}
  */
 module.exports = function (config) {
 	/**
 	 * @type {RemoteConfig}
+	 */
+	/**
+	 * Initializes and configures the Android TV Remote instance.
+	 * Handles connection, persistent heartbeat, and auto-reconnect logic.
+	 * @returns {Remote}
 	 */
 	config = config || {};
 	const ip = config.ip;
@@ -145,13 +158,19 @@ module.exports = function (config) {
 	const client = adb.createClient();
 	let connected = false;
 	const autoConnect = config.autoConnect !== false; // default true
-	const autoDisconnect = config.autoDisconnect !== false; // default true
+	const autoDisconnect = config.autoDisconnect === true; // default false
 	const disconnectTimeout = typeof config.disconnectTimeout === "number" ? config.disconnectTimeout : 10;
+	const connectionCheckInterval = typeof config.connectionCheckInterval === "number" ? config.connectionCheckInterval : 30000;
+	let connectionCheckTimer = null;
 	let disconnectTimer = null;
 	const quiet = config.quiet !== false; // default true
+	const maintainConnection = config.maintainConnection !== false; // default true
+	const heartbeatInterval = typeof config.heartbeatInterval === "number" ? config.heartbeatInterval : 30000;
+	let heartbeatTimer = null;
 
 	/**
 	 * Resets the disconnect timer if autoDisconnect is enabled.
+	 * Disconnects after inactivity if enabled.
 	 * @private
 	 */
 	function resetDisconnectTimer() {
@@ -163,7 +182,64 @@ module.exports = function (config) {
 	}
 
 	/**
+	 * Starts the heartbeat timer to maintain the ADB connection.
+	 * Periodically sends a shell command to keep the connection alive.
+	 * Also starts the periodic connection check for auto-reconnect.
+	 * @private
+	 */
+	function startHeartbeat() {
+		if (!maintainConnection) return;
+		if (heartbeatTimer) clearInterval(heartbeatTimer);
+		heartbeatTimer = setInterval(() => {
+			if (!connected) return;
+			// Send a no-op shell command to keep the connection alive
+			client.shell(host, "echo heartbeat").catch(() => {});
+		}, heartbeatInterval);
+		startConnectionCheck();
+	}
+
+	/**
+	 * Starts the periodic connection check. If disconnected, attempts to reconnect.
+	 * Ensures persistent, self-healing ADB connection.
+	 * @private
+	 */
+	function startConnectionCheck() {
+		if (connectionCheckTimer) clearInterval(connectionCheckTimer);
+		connectionCheckTimer = setInterval(async () => {
+			if (!connected) return;
+			try {
+				const devices = await client.listDevices();
+				const deviceId = host;
+				const found = devices.some((d) => d.id === deviceId);
+				if (!found) {
+					warnWithTime(`Device ${deviceId} not found in adb devices list. Attempting reconnect...`);
+					connected = false;
+					await connect();
+				}
+			} catch (err) {
+				warnWithTime("Error checking device connection:", err.message || err);
+			}
+		}, connectionCheckInterval);
+	}
+
+	/**
+	 * Stops the heartbeat and connection check timers.
+	 * @private
+	 */
+	function stopHeartbeat() {
+		if (heartbeatTimer) {
+			clearInterval(heartbeatTimer);
+			heartbeatTimer = null;
+		}
+		if (connectionCheckTimer) {
+			clearInterval(connectionCheckTimer);
+			connectionCheckTimer = null;
+		}
+	}
+
+	/**
 	 * Ensures connection if autoConnect is enabled.
+	 * Used internally before sending commands.
 	 * @internal
 	 * @returns {Promise<void>}
 	 */
@@ -174,7 +250,8 @@ module.exports = function (config) {
 	}
 
 	/**
-	 * Connects to the ADB device.
+	 * Connects to the ADB device and starts heartbeat/connection check.
+	 * Handles already-connected state gracefully.
 	 * @internal
 	 * @returns {Promise<void>}
 	 */
@@ -184,11 +261,13 @@ module.exports = function (config) {
 			.then(function () {
 				connected = true;
 				if (!quiet) logWithTime("Connected to " + host);
+				startHeartbeat();
 			})
 			.catch(function (err) {
 				if (err.message && err.message.includes("already connected")) {
 					if (!quiet) warnWithTime("Warning: Device already connected.");
 					connected = true;
+					startHeartbeat();
 					return;
 				}
 				handleDisconnectError(err);
@@ -197,7 +276,8 @@ module.exports = function (config) {
 	const connectWrapped = wrapAsync(connect);
 
 	/**
-	 * Disconnects from the ADB device.
+	 * Disconnects from the ADB device and stops heartbeat/connection check.
+	 * Handles already-disconnected state gracefully.
 	 * @internal
 	 * @returns {Promise<void>}
 	 */
@@ -206,6 +286,7 @@ module.exports = function (config) {
 			clearTimeout(disconnectTimer);
 			disconnectTimer = null;
 		}
+		stopHeartbeat();
 		return client
 			.disconnect(ip, port)
 			.then(function () {
@@ -303,7 +384,61 @@ module.exports = function (config) {
 		});
 	};
 
+	/**
+	 * Returns the current connection status as tracked by the module.
+	 * Optionally performs a live check against adb devices if requested.
+	 * @public
+	 * @param {boolean} [liveCheck=false] - If true, checks adb devices for actual connection.
+	 * @returns {Promise<"connected"|"disconnected"|"unknown">}
+	 * @example
+	 * await remote.getConnectionStatus();
+	 * await remote.getConnectionStatus(true); // live check
+	 */
+	async function getConnectionStatus(liveCheck = false) {
+		if (!liveCheck) {
+			return connected ? "connected" : "disconnected";
+		}
+		try {
+			const devices = await client.listDevices();
+			const deviceId = host;
+			const found = devices.some((d) => d.id === deviceId);
+			return found ? "connected" : "disconnected";
+		} catch {
+			return "unknown";
+		}
+	}
+
+	/**
+	 * Returns true if the module believes it is connected to the device.
+	 * This is a fast check of internal state, not a live ADB query.
+	 * @public
+	 * @returns {boolean}
+	 * @example
+	 * if (remote.isConnected) { ... }
+	 */
+	function isConnected() {
+		return !!connected;
+	}
+
 	return {
+		/**
+		 * Returns the current connection status as tracked by the module, or does a live check if requested.
+		 * @function
+		 * @param {boolean} [liveCheck=false] - If true, checks adb devices for actual connection.
+		 * @returns {Promise<"connected"|"disconnected"|"unknown">}
+		 * @example
+		 * await remote.getConnectionStatus();
+		 * await remote.getConnectionStatus(true); // live check
+		 */
+		getConnectionStatus,
+		/**
+		 * Returns true if the module believes it is connected to the device.
+		 * @readonly
+		 * @type {boolean}
+		 * @example
+		 * if (remote.isConnected) { ... }
+		 */
+		isConnected,
 		/**
 		 * Get or set Android settings via ADB.
 		 * @public

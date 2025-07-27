@@ -143,6 +143,22 @@ const remoteKeys = require("../data/remote-keys.json");
  */
 module.exports = function (config) {
 	/**
+	 * On initialization, check if already connected to the device and set internal state.
+	 * This ensures the internal state is correct if the device is already connected.
+	 */
+	(async () => {
+		try {
+			const status = await getConnectionStatus(true);
+			if (status === "connected") {
+				connected = true;
+				if (!quiet) logWithTime("Already connected to " + host + " (on init)");
+				startHeartbeat();
+			}
+		} catch (e) {
+			// Ignore errors on init
+		}
+	})();
+	/**
 	 * @type {RemoteConfig}
 	 */
 	/**
@@ -250,12 +266,17 @@ module.exports = function (config) {
 	}
 
 	/**
-	 * Connects to the ADB device and starts heartbeat/connection check.
-	 * Handles already-connected state gracefully.
-	 * @internal
+	 * Connects to the ADB device if not already connected.
+	 * Checks the internal connection state before connecting.
 	 * @returns {Promise<void>}
+	 * @example
+	 * await remote.connect(); // Only connects if not already connected
 	 */
 	function connect() {
+		if (connected) {
+			if (!quiet) logWithTime("Already connected to " + host);
+			return Promise.resolve();
+		}
 		return client
 			.connect(ip, port)
 			.then(function () {

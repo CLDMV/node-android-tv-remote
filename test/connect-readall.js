@@ -16,18 +16,27 @@ async function main() {
 
 	if (!quiet) console.log(`Running in ${mode} mode on ${ip}:${port}`);
 
-	const setup = new AndroidTVSetup({ ip, port, quiet });
-	try {
-		await setup.connect();
-		if (mode === "set") {
-			await setup.setSettings();
-		}
-		await setup.ensureAwake();
-		await setup.disconnect();
-	} catch (err) {
-		setup.errorWithTime("Error:", err.message || err);
-		process.exit(1);
-	}
+	   const setup = new AndroidTVSetup({ ip, port, quiet });
+	   try {
+			   /**
+				* Check if already connected to the device. If not, connect.
+				* @returns {Promise<void>}
+				*/
+			   const isConnected = typeof setup.isConnected === 'function' ? await setup.isConnected() : false;
+			   if (!isConnected) {
+					   await setup.connect();
+			   } else if (!quiet) {
+					   console.log(`Already connected to ${ip}:${port}`);
+			   }
+			   if (mode === "set") {
+					   await setup.setSettings();
+			   }
+			   await setup.ensureAwake();
+			   await setup.disconnect();
+	   } catch (err) {
+			   setup.errorWithTime("Error:", err.message || err);
+			   process.exit(1);
+	   }
 
 	if (!quiet) console.log(`Ran in ${mode} mode on ${ip}:${port}`);
 }

@@ -5,7 +5,8 @@
 	"main": "src/lib/android-tv-remote.js",
 	"scripts": {
 		"test": "jest",
-		"postinstall": "node scripts/postinstall.js"
+		"postinstall": "node scripts/postinstall.js",
+		"setup-device": "node scripts/setup-device.js"
 	},
 	"keywords": [
 		"android",

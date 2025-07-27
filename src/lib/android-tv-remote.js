@@ -75,15 +75,38 @@ function wrapAsync(fn) {
 
 /**
  * Handles disconnect and connection errors, outputs helpful messages, and exits the process.
+ * Also provides onboarding steps for common authentication and connection issues.
  * @private
  * @param {Error} err - The error object.
+ * @example
+ * try {
+ *   // ...code that may throw
+ * } catch (err) {
+ *   handleDisconnectError(err);
+ * }
  */
 function handleDisconnectError(err) {
 	errorWithTime("Error:", err.message || err);
-	if (err.message && err.message.includes("device unauthorized")) {
+	if (err.message && (err.message.includes("device unauthorized") || err.message.includes("failed to authenticate"))) {
 		errorWithTime(
-			"Your device is unauthorized. Please check your TV and accept the authorization dialog to allow this system to connect via ADB."
+			"Your device is unauthorized or failed to authenticate. Please check your TV and accept the authorization dialog to allow this system to connect via ADB."
 		);
+		errorWithTime("If you do not see a prompt, try disconnecting and reconnecting the device, or reboot your TV.");
+		errorWithTime("If the problem persists, remove the device from the list of authorized ADB devices in Developer Options and try again.");
+		errorWithTime(
+			"Tip: In Developer Options on your TV, try toggling 'ADB Debugging' off and then back on. This often resolves authentication issues."
+		);
+	}
+	if (err.message && (err.message.includes("actively refused") || err.message.includes("No connection could be made"))) {
+		errorWithTime("\nThe device refused the connection. To enable ADB, follow these steps on your Android TV or Fire TV:");
+		errorWithTime("1. Open Settings > Device Preferences > About (or My Fire TV > About)");
+		errorWithTime("2. Scroll to 'Build' and press OK 7 times to enable Developer Options");
+		errorWithTime("3. Go back to Settings > Device Preferences > Developer Options");
+		errorWithTime("4. Enable 'Developer Options' if needed, then enable 'ADB Debugging' and 'Apps from Unknown Sources'");
+		errorWithTime("5. Ensure your TV and computer are on the same network");
+		errorWithTime("6. On your computer, run: adb connect <device-ip>:5555");
+		errorWithTime("7. Accept the authorization prompt on your TV");
+		errorWithTime("\nIf you do not see 'Developer Options', repeat step 2 until it appears.");
 	}
 	process.exit(1);
 }
@@ -388,6 +411,19 @@ module.exports = function (config) {
 					if (key === "ok" || key === "select") {
 						return inputKeycode(keycodes.dpadCenter || keycodes.ok);
 					}
+					// Map up/down/left/right to dpad keycodes
+					if (key === "up") {
+						return inputKeycode(keycodes.dpadUp);
+					}
+					if (key === "down") {
+						return inputKeycode(keycodes.dpadDown);
+					}
+					if (key === "left") {
+						return inputKeycode(keycodes.dpadLeft);
+					}
+					if (key === "right") {
+						return inputKeycode(keycodes.dpadRight);
+					}
 					// Special handling for play/pause
 					if (key === "play") {
 						return inputKeycode(keycodes.mediaPlay || keycodes.playPause);
@@ -419,6 +455,18 @@ module.exports = function (config) {
 					if (key === "ok" || key === "select") {
 						return inputKeycodeLongPressWrapped(keycodes.dpadCenter || keycodes.ok);
 					}
+					if (key === "up") {
+						return inputKeycodeLongPressWrapped(keycodes.dpadUp);
+					}
+					if (key === "down") {
+						return inputKeycodeLongPressWrapped(keycodes.dpadDown);
+					}
+					if (key === "left") {
+						return inputKeycodeLongPressWrapped(keycodes.dpadLeft);
+					}
+					if (key === "right") {
+						return inputKeycodeLongPressWrapped(keycodes.dpadRight);
+					}
 					if (key === "play") {
 						return inputKeycodeLongPressWrapped(keycodes.mediaPlay || keycodes.playPause);
 					}
@@ -438,6 +486,17 @@ module.exports = function (config) {
 					return inputKeycodeLongPressWrapped(keycodes[key]);
 				});
 			});
+			// Robust aliasing: always add if dpad keys exist in keycodes
+			// if (typeof obj.dpadUp === "function" || keycodes.dpadUp) obj.up = obj.dpadUp;
+			// if (typeof obj.dpadDown === "function" || keycodes.dpadDown) obj.down = obj.dpadDown;
+			// if (typeof obj.dpadLeft === "function" || keycodes.dpadLeft) obj.left = obj.dpadLeft;
+			// if (typeof obj.dpadRight === "function" || keycodes.dpadRight) obj.right = obj.dpadRight;
+			// if (typeof obj.dpadCenter === "function" || keycodes.dpadCenter) obj.ok = obj.dpadCenter;
+			// if (typeof longObj.dpadUp === "function") longObj.up = longObj.dpadUp;
+			// if (typeof longObj.dpadDown === "function") longObj.down = longObj.dpadDown;
+			// if (typeof longObj.dpadLeft === "function") longObj.left = longObj.dpadLeft;
+			// if (typeof longObj.dpadRight === "function") longObj.right = longObj.dpadRight;
+			// if (typeof longObj.dpadCenter === "function") longObj.ok = longObj.dpadCenter;
 			obj.long = longObj;
 			return obj;
 		})(),

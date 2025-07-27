@@ -403,6 +403,7 @@ module.exports = function (config) {
 	/**
 	 * Returns the current connection status as tracked by the module.
 	 * Optionally performs a live check against adb devices if requested.
+	 * Also updates the internal connected state if a live check is performed.
 	 * @public
 	 * @param {boolean} [liveCheck=false] - If true, checks adb devices for actual connection.
 	 * @returns {Promise<"connected"|"disconnected"|"unknown">}
@@ -418,8 +419,10 @@ module.exports = function (config) {
 			const devices = await client.listDevices();
 			const deviceId = host;
 			const found = devices.some((d) => d.id === deviceId);
+			connected = found; // Keep internal state in sync with live check
 			return found ? "connected" : "disconnected";
 		} catch {
+			connected = false;
 			return "unknown";
 		}
 	}

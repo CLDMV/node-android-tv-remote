@@ -3,7 +3,7 @@
 // Usage: node test/interactive-remote.js
 
 const readline = require("readline");
-const remote = require("../src/lib/android-tv-remote");
+const createRemote = require("../src/lib/android-tv-remote");
 
 /**
  * Prompts the user for input in the terminal.
@@ -36,7 +36,8 @@ async function main() {
 		process.exit(1);
 	}
 	try {
-		await remote.connect({ ip, port });
+		const remote = createRemote({ ip, port });
+		await remote.connect();
 		console.log(`Connected to ${ip}:${port}`);
 		// List of buttons to press (as method names on remote.press)
 		const buttons = ["home", "up", "down", "left", "right", "ok", "back"];

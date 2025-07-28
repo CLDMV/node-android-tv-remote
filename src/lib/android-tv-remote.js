@@ -167,7 +167,23 @@ module.exports = function (config) {
 	/**
 	 * On initialization, check if already connected to the device and set internal state.
 	 * This ensures the internal state is correct if the device is already connected.
+	 * Expose a promise (initPromise) that resolves or rejects based on the result.
 	 */
+	/**
+	 * Internal resolve/reject for initPromise, always defined as functions.
+	 */
+	let initPromiseResolve = (_v) => {};
+	let initPromiseReject = (_e) => {};
+	/**
+	 * Promise that resolves if initial auto-connect succeeds, or rejects if it fails.
+	 * @type {Promise<void>}
+	 * @example
+	 * remote.initPromise.then(() => { ... }).catch((err) => { ... });
+	 */
+	const initPromise = new Promise((resolve, reject) => {
+		initPromiseResolve = resolve;
+		initPromiseReject = reject;
+	});
 	(async () => {
 		try {
 			const status = await getConnectionStatus(true);
@@ -175,9 +191,18 @@ module.exports = function (config) {
 				connected = true;
 				if (!quiet) logWithTime("Already connected to " + host + " (on init)");
 				startHeartbeat();
+				initPromiseResolve();
+			} else {
+				// Try to connect if not already connected
+				await connect();
+				if (connected) {
+					initPromiseResolve();
+				} else {
+					initPromiseReject(new Error("Failed to connect to device on initialization."));
+				}
 			}
 		} catch (e) {
-			// Ignore errors on init
+			initPromiseReject(e);
 		}
 	})();
 
@@ -469,6 +494,13 @@ module.exports = function (config) {
 	}
 
 	const remoteApi = {
+		/**
+		 * Promise that resolves if initial auto-connect succeeds, or rejects if it fails.
+		 * @type {Promise<void>}
+		 * @example
+		 * remote.initPromise.then(() => { ... }).catch((err) => { ... });
+		 */
+		initPromise,
 		/**
 		 * Returns the current connection status as tracked by the module, or does a live check if requested.
 		 * @function

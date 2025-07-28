@@ -103,6 +103,7 @@ function handleDisconnectError(err) {
 		errorWithTime(
 			"Tip: In Developer Options on your TV, try toggling 'ADB Debugging' off and then back on. This often resolves authentication issues."
 		);
+		process.exit(1);
 	}
 	if (err.message && (err.message.includes("actively refused") || err.message.includes("No connection could be made"))) {
 		errorWithTime("\nThe device refused the connection. To enable ADB, follow these steps on your Android TV or Fire TV:");
@@ -114,8 +115,9 @@ function handleDisconnectError(err) {
 		errorWithTime("6. On your computer, run: adb connect <device-ip>:5555");
 		errorWithTime("7. Accept the authorization prompt on your TV");
 		errorWithTime("\nIf you do not see 'Developer Options', repeat step 2 until it appears.");
+		process.exit(1);
 	}
-	process.exit(1);
+	return err;
 }
 
 /**
@@ -284,9 +286,9 @@ module.exports = function (config) {
 					if (!quiet) warnWithTime("Warning: Device already connected.");
 					connected = true;
 					startHeartbeat();
-					return;
+					return true;
 				}
-				handleDisconnectError(err);
+				return handleDisconnectError(err);
 			});
 	}
 	const connectWrapped = wrapAsync(connect);
@@ -308,14 +310,15 @@ module.exports = function (config) {
 			.then(function () {
 				connected = false;
 				if (!quiet) logWithTime("Disconnected from " + host);
+				return true;
 			})
 			.catch(function (err) {
 				if (err.message && err.message.includes("disconnected")) {
 					if (!quiet) warnWithTime("Warning: Device already disconnected before explicit disconnect call.");
 					connected = false;
-					return;
+					return true;
 				}
-				handleDisconnectError(err);
+				return handleDisconnectError(err);
 			});
 	}
 	const disconnectWrapped = wrapAsync(disconnect);
@@ -557,7 +560,7 @@ module.exports = function (config) {
 					if (err.message && err.message.includes("disconnected")) {
 						if (!useQuiet) warnWithTime("Warning: Device already disconnected before explicit disconnect call.");
 					} else {
-						handleDisconnectError(err);
+						return handleDisconnectError(err);
 					}
 				});
 		},

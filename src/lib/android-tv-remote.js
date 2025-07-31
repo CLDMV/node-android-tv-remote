@@ -156,12 +156,12 @@ module.exports = function (config) {
 	const autoConnect = config.autoConnect !== false; // default true
 	const autoDisconnect = config.autoDisconnect === true; // default false
 	const disconnectTimeout = typeof config.disconnectTimeout === "number" ? config.disconnectTimeout : 10;
-	const connectionCheckInterval = typeof config.connectionCheckInterval === "number" ? config.connectionCheckInterval : 30000;
+	const connectionCheckInterval = typeof config.connectionCheckInterval === "number" ? config.connectionCheckInterval : 10000;
 	let connectionCheckTimer = null;
 	let disconnectTimer = null;
 	const quiet = config.quiet !== false; // default true
 	const maintainConnection = config.maintainConnection !== false; // default true
-	const heartbeatInterval = typeof config.heartbeatInterval === "number" ? config.heartbeatInterval : 30000;
+	const heartbeatInterval = typeof config.heartbeatInterval === "number" ? config.heartbeatInterval : 20000;
 	let heartbeatTimer = null;
 
 	/**
@@ -169,42 +169,55 @@ module.exports = function (config) {
 	 * This ensures the internal state is correct if the device is already connected.
 	 * Expose a promise (initPromise) that resolves or rejects based on the result.
 	 */
+	const INIT_TIMEOUT_MS = 7000;
+
 	/**
 	 * Internal resolve/reject for initPromise, always defined as functions.
 	 */
-	let initPromiseResolve = (_v) => {};
-	let initPromiseReject = (_e) => {};
+	let initPromiseResolve;
+	let initPromiseReject;
+
 	/**
 	 * Promise that resolves if initial auto-connect succeeds, or rejects if it fails.
+	 * Now includes a timeout to prevent hanging forever if ADB never responds.
 	 * @type {Promise<void>}
 	 * @example
 	 * remote.initPromise.then(() => { ... }).catch((err) => { ... });
 	 */
-	const initPromise = new Promise((resolve, reject) => {
+	const realInitPromise = new Promise((resolve, reject) => {
 		initPromiseResolve = resolve;
 		initPromiseReject = reject;
-	});
-	(async () => {
-		try {
-			const status = await getConnectionStatus(true);
-			if (status === "connected") {
-				connected = true;
-				if (!quiet) logWithTime("Already connected to " + host + " (on init)");
-				startHeartbeat();
-				initPromiseResolve();
-			} else {
-				// Try to connect if not already connected
-				await connect();
-				if (connected) {
-					initPromiseResolve();
+		(async () => {
+			try {
+				const status = await getConnectionStatus(true);
+				if (status === "connected") {
+					connected = true;
+					if (!quiet) logWithTime("Already connected to " + host + " (on init)");
+					startHeartbeat();
+					initPromiseResolve(undefined);
 				} else {
-					initPromiseReject(new Error("Failed to connect to device on initialization."));
+					// Try to connect if not already connected
+					await connect();
+					if (connected) {
+						initPromiseResolve(undefined);
+					} else {
+						initPromiseReject(new Error("Failed to connect to device on initialization."));
+					}
 				}
+			} catch (e) {
+				initPromiseReject(e);
 			}
-		} catch (e) {
-			initPromiseReject(e);
-		}
-	})();
+		})();
+	});
+
+	const initPromise = Promise.race([
+		realInitPromise,
+		new Promise((_, reject) => {
+			setTimeout(function () {
+				reject(new Error("ADB initPromise timed out"));
+			}, INIT_TIMEOUT_MS);
+		})
+	]);
 
 	/**
 	 * Resets the disconnect timer if autoDisconnect is enabled.

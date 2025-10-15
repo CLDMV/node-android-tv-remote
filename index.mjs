@@ -21,5 +21,5 @@
  */
 
 export { default } from "./src/lib/android-tv-remote.mjs";
-export { default as createRemote } from "./src/lib/android-tv-remote.mjs";
+export { default as createRemote, createAndroidTVRemote } from "./src/lib/android-tv-remote.mjs";
 export { default as AndroidTVSetup } from "./src/lib/adb/setup.mjs";

@@ -23,16 +23,19 @@
  */
 import createRemote from "../android-tv-remote.mjs";
 import adbkit from "@devicefarmer/adbkit";
+import { EventEmitter } from "events";
 const Adb = adbkit.Adb;
 
-class AndroidTVSetup {
+class AndroidTVSetup extends EventEmitter {
 	/**
-	 * @param {Object} options
-	 * @param {string} options.ip - The IP address of the ADB device.
-	 * @param {number} [options.port=5555] - The port number for the ADB connection.
-	 * @param {boolean} [options.quiet=true] - Suppress log output except for results.
+	 * Create an AndroidTVSetup instance.
+	 * @param {Object} options - Configuration options.
+	 * @param {string} options.ip - Device IP address.
+	 * @param {number} [options.port=5555] - Device port.
+	 * @param {boolean} [options.quiet=false] - Suppress log output.
 	 */
-	constructor({ ip, port = 5555, quiet = true }) {
+	constructor(options = {}) {
+		super();
 		this.ip = ip;
 		this.port = port;
 		this.quiet = quiet;
@@ -40,43 +43,61 @@ class AndroidTVSetup {
 		this.host = `${ip}:${port}`;
 	}
 
-	logWithTime(...args) {
-		if (!this.quiet) {
-			const now = new Date().toISOString();
-			console.log(`[${now}]`, ...args);
+	/**
+	 * Emit a log event with structured data.
+	 * @private
+	 * @param {string} level - Log level (info, warn, error, debug).
+	 * @param {string} message - Log message.
+	 * @param {string} [source] - Source of the log message.
+	 * @param {any} [data] - Additional data to include.
+	 */
+	emitLog(level, message, source = "android-tv-setup", data = null) {
+		if (!this.quiet || level === "error") {
+			this.emit("log", {
+				level,
+				message,
+				source,
+				timestamp: new Date().toISOString(),
+				...(data && { data })
+			});
 		}
 	}
-	warnWithTime(...args) {
-		if (!this.quiet) {
-			const now = new Date().toISOString();
-			console.warn(`[${now}]`, ...args);
-		}
-	}
-	errorWithTime(...args) {
-		const now = new Date().toISOString();
-		console.error(`[${now}]`, ...args);
+	
+	/**
+	 * Emit an error event with structured data.
+	 * @private
+	 * @param {Error} error - The error object.
+	 * @param {string} [source] - Source of the error.
+	 * @param {string} [message] - Additional error message.
+	 */
+	emitError(error, source = "android-tv-setup", message = null) {
+		this.emit("error", {
+			error,
+			source,
+			message: message || error.message,
+			timestamp: new Date().toISOString()
+		});
 	}
 
 	async connect() {
 		await this.remote.connect();
-		this.logWithTime(`Connected to ${this.host}`);
+		this.emitLog("info", `Connected to ${this.host}`, "connect");
 	}
 
 	async disconnect() {
 		try {
 			await this.remote.disconnect();
-			this.logWithTime("Disconnected cleanly");
+			this.emitLog("info", "Disconnected cleanly", "disconnect");
 		} catch (err) {
 			if (err.message && err.message.includes("disconnected")) {
-				this.warnWithTime("Warning: Device already disconnected before explicit disconnect call.");
+				this.emitLog("warn", "Device already disconnected before explicit disconnect call", "disconnect");
 			} else {
-				this.errorWithTime("Error:", err.message || err);
+				this.emitError(err, "disconnect");
 				if (err.message && err.message.includes("device unauthorized")) {
-					this.errorWithTime(
-						"Your device is unauthorized. Please check your TV and accept the authorization dialog to allow this computer to connect via ADB."
-					);
+					this.emitLog("error", "Your device is unauthorized. Please check your TV and accept the authorization dialog to allow this computer to connect via ADB.", "disconnect");
 				}
-				process.exit(1);
+				// Don't exit the process, just emit the error
+				throw err;
 			}
 		}
 	}
@@ -93,7 +114,7 @@ class AndroidTVSetup {
 		for (const cmd of cmds) {
 			(await this.remote.inputKeycode) ? Promise.resolve() : Promise.resolve(); // placeholder for future
 			await this.remotePressShell(cmd);
-			this.logWithTime(`Ran: ${cmd}`);
+			this.emitLog("info", `Ran: ${cmd}`, "setSettings");
 		}
 		await this.remote.disconnect();
 	}
@@ -128,11 +149,11 @@ class AndroidTVSetup {
 			.then(Adb.util.readAll)
 			.then((b) => b.toString());
 		const parsed = this.parsePowerState(output);
-		this.logWithTime("\n--- Power State ---");
-		this.logWithTime(`mIsPowered: ${parsed.mIsPowered}`);
-		this.logWithTime(`mWakefulness: ${parsed.mWakefulness}`);
-		this.logWithTime(`mDisplayReady: ${parsed.mDisplayReady}`);
-		this.logWithTime("-------------------\n");
+		this.emitLog("info", "\n--- Power State ---", "ensureAwake");
+		this.emitLog("info", `mIsPowered: ${parsed.mIsPowered}`, "ensureAwake");
+		this.emitLog("info", `mWakefulness: ${parsed.mWakefulness}`, "ensureAwake");
+		this.emitLog("info", `mDisplayReady: ${parsed.mDisplayReady}`, "ensureAwake");
+		this.emitLog("info", "-------------------\n", "ensureAwake");
 		// Use remote.inputKeycode for keyevents
 		if (parsed.mIsPowered !== "true") await this.remote.inputKeycode(26);
 		if (parsed.mWakefulness !== "Awake") await this.remote.inputKeycode(224);

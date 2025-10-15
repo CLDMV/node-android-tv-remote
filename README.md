@@ -18,7 +18,16 @@
 
 ## Overview
 
-A Node.js module for controlling Android TV devices via ADB. Supports sending keycodes, keyboard input, and remote control commands. Designed for compatibility with a wide range of Android TV devices, including Fire TV, Chromecast with Google TV, and more.
+A modern, **event-driven** Node.js module for controlling Android TV devices via ADB. Supports sending keycodes, keyboard input, and remote control commands. Designed for compatibility with a wide range of Android TV devices, including Fire TV, Chromecast with Google TV, and more.
+
+### Key Features
+
+- 🎯 **Event-driven architecture** - No console pollution, structured event data
+- 🔄 **ESM & CommonJS support** - Works with both `import` and `require`
+- 🛡️ **Error resilience** - Errors emit events instead of crashing your app
+- 🔗 **Method chaining** - Fluent API for event listener management
+- 📊 **Structured logging** - Timestamped, categorized log events with source tracking
+- 🚀 **Promise-based** - Modern async/await support with callback compatibility
 
 ## Installation
 
@@ -61,8 +70,15 @@ npm install android-tv-remote
 
 ## Usage
 
+### Basic Usage
+
 ```js
+// ESM
+import createRemote from "android-tv-remote";
+
+// CJS
 const createRemote = require("android-tv-remote");
+
 const remote = createRemote({ ip: "192.168.1.100" });
 
 // Connect
@@ -78,17 +94,101 @@ await remote.keyboard.text("hello world");
 await remote.disconnect();
 ```
 
+### Event-Driven Usage (Recommended)
+
+This module uses an **event-driven architecture** instead of console logging. All operations emit structured events that you can listen to:
+
+```js
+import createRemote from "android-tv-remote";
+
+const remote = createRemote({ ip: "192.168.1.100" });
+
+// Listen for log events (info, warn, error, debug)
+remote.on("log", (data) => {
+	console.log(`[${data.level}] ${data.source}: ${data.message}`);
+});
+
+// Listen for error events
+remote.on("error", (data) => {
+	console.error(`ERROR from ${data.source}:`, data.error.message);
+
+	// Handle specific error types
+	if (data.error.message.includes("device unauthorized")) {
+		console.log("Please authorize ADB on your Android TV device");
+	}
+});
+
+// Use the remote
+await remote.press.home();
+```
+
+### Static Create Method
+
+For cleaner async initialization:
+
+```js
+import { createAndroidTVRemote } from "android-tv-remote";
+
+const remote = await createAndroidTVRemote({ ip: "192.168.1.100" });
+remote.on("log", console.log);
+await remote.press.play();
+```
+
+### Event Data Structure
+
+**Log Events:**
+
+```js
+{
+  level: 'info' | 'warn' | 'error' | 'debug',
+  message: 'Human readable message',
+  source: 'connect' | 'disconnect' | 'handleSettings' | etc,
+  timestamp: '2025-10-15T18:37:44.854Z',
+  data?: any // Optional additional data
+}
+```
+
+**Error Events:**
+
+```js
+{
+  error: Error, // The actual error object
+  source: 'connect' | 'adb' | 'keyboard.key' | etc,
+  message: 'Human readable error message',
+  timestamp: '2025-10-15T18:37:44.854Z'
+}
+```
+
 ## API
 
-See [API documentation](#) for full details. Main methods:
+### Main Methods
 
-- `connect()` / `disconnect()`
-- `press.<key>()` / `press.long.<key>()`
-- `keyboard.text(text)`
-- `keyboard.key.<key>()` / `keyboard.key.<key>.keycode()`
-- `keyboard.key.shift.<key>()` / `keyboard.key.shift.<key>.keycode()`
-- `inputKeycode(code)`
-- `handleSettings(mode, [overrideQuiet])`
+- `connect()` / `disconnect()` - Device connection management
+- `press.<key>()` / `press.long.<key>()` - Remote control buttons
+- `keyboard.text(text)` - Text input
+- `keyboard.key.<key>()` / `keyboard.key.<key>.keycode()` - Individual keys
+- `keyboard.key.shift.<key>()` / `keyboard.key.shift.<key>.keycode()` - Shifted keys
+- `inputKeycode(code)` - Raw Android keycodes
+- `handleSettings(mode, [overrideQuiet])` - Android settings management
+
+### Event Methods
+
+- `on(event, listener)` - Add event listener (returns remote for chaining)
+- `off(event, listener)` - Remove event listener (returns remote for chaining)
+- `once(event, listener)` - Add one-time event listener (returns remote for chaining)
+- `emit(event, ...args)` - Emit custom events
+
+### Events
+
+- `log` - Emitted for all operations (info, warn, error, debug levels)
+- `error` - Emitted when errors occur (structured error data)
+
+### Properties
+
+- `isConnected` - Boolean indicating connection status
+- `initPromise` - Promise that resolves when initialization completes
+
+See JSDoc comments in source code for full API documentation.
 
 ## Supported Devices
 

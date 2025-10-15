@@ -6,16 +6,51 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-15 10:34:01 -07:00 (1760549641)
+ *	@Last modified time: 2025-10-15 11:13:38 -07:00 (1760552018)
  *	-----
  *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
  */
 
 /**
- * Android TV Remote module.
+ * Android TV Remote module - Event-driven ADB remote control for Android TV devices.
+ * 
  * @module android-tv-remote
+ * 
+ * @description
+ * This module provides an event-driven interface for controlling Android TV devices via ADB.
+ * All operations emit events instead of console logging, allowing for better integration
+ * and programmatic handling of device communication.
+ * 
+ * @example
+ * // ESM usage with event handling
+ * import createRemote from "@cldmv/node-android-tv-remote";
+ * 
+ * const remote = createRemote({ ip: "192.168.1.100" });
+ * 
+ * // Listen for log events
+ * remote.on('log', (data) => {
+ *   console.log(`[${data.level}] ${data.message}`, data.source);
+ * });
+ * 
+ * // Listen for errors
+ * remote.on('error', (data) => {
+ *   console.error(`Error from ${data.source}:`, data.error.message);
+ * });
+ * 
+ * // Use the remote
+ * await remote.press.home();
+ * 
+ * @example
+ * // Static create method
+ * import { createAndroidTVRemote } from "@cldmv/node-android-tv-remote";
+ * 
+ * const remote = await createAndroidTVRemote({ ip: "192.168.1.100" });
+ * remote.on('log', console.log);
+ * await remote.press.play();
  */
+
 /**
+ * Configuration object for Android TV Remote.
  * @typedef {Object} RemoteConfig
  * @property {string} ip - The IP address of the device.
  * @property {number} [port=5555] - The port for ADB connection.
@@ -26,9 +61,30 @@
  * @property {boolean} [maintainConnection=true] - Whether to maintain the ADB connection with a heartbeat.
  * @property {number} [heartbeatInterval=30000] - Heartbeat interval in ms (default 30s).
  * @property {number} [connectionCheckInterval=30000] - Interval in ms for periodic connection checks (default 30s).
- * @property {boolean} [quiet=true] - Suppress connection log output if true.
+ * @property {boolean} [quiet=true] - Suppress log events if true (errors are always emitted).
  */
+
 /**
+ * Log event data structure.
+ * @typedef {Object} LogEventData
+ * @property {string} level - Log level: 'info', 'warn', 'error', 'debug'.
+ * @property {string} message - Log message.
+ * @property {string} source - Source of the log message (e.g., 'connect', 'disconnect', 'handleSettings').
+ * @property {string} timestamp - ISO timestamp of when the log was created.
+ * @property {any} [data] - Optional additional data related to the log.
+ */
+
+/**
+ * Error event data structure.
+ * @typedef {Object} ErrorEventData
+ * @property {Error} error - The error object that was thrown.
+ * @property {string} source - Source of the error (e.g., 'connect', 'disconnect', 'adb').
+ * @property {string} message - Human-readable error message.
+ * @property {string} timestamp - ISO timestamp of when the error occurred.
+ */
+
+/**
+ * Android TV Remote instance with event emission capabilities.
  * @typedef {Object} Remote
  * @property {function(string, boolean=): Promise<void>} handleSettings - Get or set Android settings via ADB.
  * @property {function(function(Error=, any=)=): Promise<void>|undefined} connect - Connect to the device. Supports both promise and callback styles.
@@ -40,40 +96,41 @@
  * @property {Object} keyboard - Keyboard interface for all keys, with text and keycode fallback.
  * @property {Object} keyboard.key - Contains all key functions.
  * @property {Object} keyboard.key.shift - Contains all shifted key functions.
+ * 
+ * @property {function(string, Function): Remote} on - Add event listener. Returns remote instance for chaining.
+ * @property {function(string, Function): Remote} off - Remove event listener. Returns remote instance for chaining.
+ * @property {function(string, Function): Remote} once - Add one-time event listener. Returns remote instance for chaining.
+ * @property {function(string, ...any): boolean} emit - Emit an event. Returns true if event had listeners.
+ * 
+ * @fires Remote#log - Emitted for informational messages, warnings, and debug info.
+ * @fires Remote#error - Emitted when errors occur during ADB operations.
+ * 
+ * @example
+ * // Event handling examples
+ * remote.on('log', (data) => {
+ *   if (data.level === 'error') {
+ *     console.error(`ERROR [${data.source}]: ${data.message}`);
+ *   } else if (data.level === 'warn') {
+ *     console.warn(`WARN [${data.source}]: ${data.message}`);
+ *   } else {
+ *     console.log(`INFO [${data.source}]: ${data.message}`);
+ *   }
+ * });
+ * 
+ * remote.on('error', (data) => {
+ *   console.error(`FATAL ERROR from ${data.source}:`);
+ *   console.error(data.error.stack || data.error.message);
+ *   
+ *   // Handle specific error types
+ *   if (data.error.message.includes('device unauthorized')) {
+ *     console.log('Please authorize ADB on your Android TV device');
+ *   }
+ * });
  */
 
 import adbkit from "@devicefarmer/adbkit";
+import { EventEmitter } from "events";
 const Adb = adbkit.Adb;
-
-/**
- * Logs a message with a datetime prefix.
- * @private
- * @param {...any} args - Arguments to log.
- */
-function logWithTime(...args) {
-	const now = new Date().toISOString();
-	console.log(`[${now}]`, ...args);
-}
-
-/**
- * Logs a warning with a datetime prefix.
- * @private
- * @param {...any} args - Arguments to warn.
- */
-function warnWithTime(...args) {
-	const now = new Date().toISOString();
-	console.warn(`[${now}]`, ...args);
-}
-
-/**
- * Logs an error with a datetime prefix.
- * @private
- * @param {...any} args - Arguments to error.
- */
-function errorWithTime(...args) {
-	const now = new Date().toISOString();
-	console.error(`[${now}]`, ...args);
-}
 
 /**
  * Wraps an async function to support both promise and callback styles.
@@ -93,8 +150,45 @@ function wrapAsync(fn) {
 	};
 }
 
+// Create event emitter for this instance
+const emitter = new EventEmitter();
+
 /**
- * Handles disconnect and connection errors, outputs helpful messages, and exits the process.
+ * Emit a log event with structured data.
+ * @private
+ * @param {string} level - Log level (info, warn, error, debug).
+ * @param {string} message - Log message.
+ * @param {string} [source] - Source of the log message.
+ * @param {any} [data] - Additional data to include.
+ */
+function emitLog(level, message, source = "android-tv-remote", data = null) {
+	emitter.emit("log", {
+		level,
+		message,
+		source,
+		timestamp: new Date().toISOString(),
+		...(data && { data })
+	});
+}
+	
+/**
+ * Emit an error event with structured data.
+ * @private
+ * @param {Error} error - The error object.
+ * @param {string} [source] - Source of the error.
+ * @param {string} [message] - Additional error message.
+ */
+function emitError(error, source = "android-tv-remote", message = null) {
+	emitter.emit("error", {
+		error,
+		source,
+		message: message || error.message,
+		timestamp: new Date().toISOString()
+	});
+}
+	
+/**
+ * Handles disconnect and connection errors, emits helpful messages.
  * Also provides onboarding steps for common authentication and connection issues.
  * @private
  * @param {Error} err - The error object.
@@ -105,31 +199,31 @@ function wrapAsync(fn) {
  *   handleDisconnectError(err);
  * }
  */
+
 function handleDisconnectError(err) {
-	errorWithTime("Error:", err.message || err);
+	emitError(err, "handleDisconnectError");
+
 	if (err.message && (err.message.includes("device unauthorized") || err.message.includes("failed to authenticate"))) {
-		errorWithTime(
-			"Your device is unauthorized or failed to authenticate. Please check your TV and accept the authorization dialog to allow this system to connect via ADB."
-		);
-		errorWithTime("If you do not see a prompt, try disconnecting and reconnecting the device, or reboot your TV.");
-		errorWithTime("If the problem persists, remove the device from the list of authorized ADB devices in Developer Options and try again.");
-		errorWithTime(
-			"Tip: In Developer Options on your TV, try toggling 'ADB Debugging' off and then back on. This often resolves authentication issues."
-		);
-		process.exit(1);
+		emitError(err, "handleDisconnectError", "Device unauthorized - authentication required");
+		emitLog("error", "Your device is unauthorized or failed to authenticate. Please check your TV and accept the authorization dialog to allow this system to connect via ADB.", "handleDisconnectError");
+		emitLog("info", "If you do not see a prompt, try disconnecting and reconnecting the device, or reboot your TV.", "handleDisconnectError");
+		emitLog("info", "If the problem persists, remove the device from the list of authorized ADB devices in Developer Options and try again.", "handleDisconnectError");
+		emitLog("info", "Tip: In Developer Options on your TV, try toggling 'ADB Debugging' off and then back on. This often resolves authentication issues.", "handleDisconnectError");
 	}
+		
 	if (err.message && (err.message.includes("actively refused") || err.message.includes("No connection could be made"))) {
-		errorWithTime("\nThe device refused the connection. To enable ADB, follow these steps on your Android TV or Fire TV:");
-		errorWithTime("1. Open Settings > Device Preferences > About (or My Fire TV > About)");
-		errorWithTime("2. Scroll to 'Build' and press OK 7 times to enable Developer Options");
-		errorWithTime("3. Go back to Settings > Device Preferences > Developer Options");
-		errorWithTime("4. Enable 'Developer Options' if needed, then enable 'ADB Debugging' and 'Apps from Unknown Sources'");
-		errorWithTime("5. Ensure your TV and computer are on the same network");
-		errorWithTime("6. On your computer, run: adb connect <device-ip>:5555");
-		errorWithTime("7. Accept the authorization prompt on your TV");
-		errorWithTime("\nIf you do not see 'Developer Options', repeat step 2 until it appears.");
-		process.exit(1);
+		emitError(err, "handleDisconnectError", "Connection refused - ADB not enabled");
+		emitLog("error", "The device refused the connection. To enable ADB, follow these steps on your Android TV or Fire TV:", "handleDisconnectError");
+		emitLog("info", "1. Open Settings > Device Preferences > About (or My Fire TV > About)", "handleDisconnectError");
+		emitLog("info", "2. Scroll to 'Build' and press OK 7 times to enable Developer Options", "handleDisconnectError");
+		emitLog("info", "3. Go back to Settings > Device Preferences > Developer Options", "handleDisconnectError");
+		emitLog("info", "4. Enable 'Developer Options' if needed, then enable 'ADB Debugging' and 'Apps from Unknown Sources'", "handleDisconnectError");
+		emitLog("info", "5. Ensure your TV and computer are on the same network", "handleDisconnectError");
+		emitLog("info", "6. On your computer, run: adb connect <device-ip>:5555", "handleDisconnectError");
+		emitLog("info", "7. Accept the authorization prompt on your TV", "handleDisconnectError");
+		emitLog("info", "If you do not see 'Developer Options', repeat step 2 until it appears.", "handleDisconnectError");
 	}
+	
 	return err;
 }
 
@@ -211,7 +305,7 @@ export default function createRemote(config) {
 				const status = await getConnectionStatus(true);
 				if (status === "connected") {
 					connected = true;
-					if (!quiet) logWithTime("Already connected to " + host + " (on init)");
+					if (!quiet) emitLog("info", `Already connected to ${host} (on init)`, "initPromise");
 					startHeartbeat();
 					initPromiseResolve(undefined);
 				} else {
@@ -220,10 +314,13 @@ export default function createRemote(config) {
 					if (connected) {
 						initPromiseResolve(undefined);
 					} else {
-						initPromiseReject(new Error("Failed to connect to device on initialization."));
+						const error = new Error("Failed to connect to device on initialization.");
+						emitError(error, "initPromise", "Auto-connect failed during initialization");
+						initPromiseReject(error);
 					}
 				}
 			} catch (e) {
+				emitError(e instanceof Error ? e : new Error(String(e)), "initPromise", "Exception during initialization");
 				initPromiseReject(e);
 			}
 		})();
@@ -282,13 +379,13 @@ export default function createRemote(config) {
 				const deviceId = host;
 				const found = devices.some((d) => d.id === deviceId);
 				if (!found) {
-					warnWithTime(`Device ${deviceId} not found in adb devices list. Attempting reconnect...`);
+					emitLog("warn", `Device ${deviceId} not found in adb devices list. Attempting reconnect...`, "connectionCheck");
 					connected = false;
 					await connect();
 				}
 			} catch (err) {
 				const error = err instanceof Error ? err : new Error(String(err));
-				warnWithTime("Error checking device connection:", error.message);
+				emitLog("warn", `Error checking device connection: ${error.message}`, "connectionCheck");
 			}
 		}, connectionCheckInterval);
 	}
@@ -329,19 +426,19 @@ export default function createRemote(config) {
 	 */
 	function connect() {
 		if (connected) {
-			if (!quiet) logWithTime("Already connected to " + host);
+			if (!quiet) emitLog("info", `Already connected to ${host}`, "connect");
 			return Promise.resolve();
 		}
 		return client
 			.connect(ip, port)
 			.then(function () {
 				connected = true;
-				if (!quiet) logWithTime("Connected to " + host);
+				if (!quiet) emitLog("info", `Connected to ${host}`, "connect");
 				startHeartbeat();
 			})
 			.catch(function (err) {
 				if (err.message && err.message.includes("already connected")) {
-					if (!quiet) warnWithTime("Warning: Device already connected.");
+					if (!quiet) emitLog("warn", "Device already connected", "connect");
 					connected = true;
 					startHeartbeat();
 					return true;
@@ -367,12 +464,12 @@ export default function createRemote(config) {
 			.disconnect(ip, port)
 			.then(function () {
 				connected = false;
-				if (!quiet) logWithTime("Disconnected from " + host);
+				if (!quiet) emitLog("info", `Disconnected from ${host}`, "disconnect");
 				return true;
 			})
 			.catch(function (err) {
 				if (err.message && err.message.includes("disconnected")) {
-					if (!quiet) warnWithTime("Warning: Device already disconnected before explicit disconnect call.");
+					if (!quiet) emitLog("warn", "Device already disconnected before explicit disconnect call", "disconnect");
 					connected = false;
 					return true;
 				}
@@ -534,6 +631,62 @@ export default function createRemote(config) {
 		 * remote.initPromise.then(() => { ... }).catch((err) => { ... });
 		 */
 		initPromise,
+		
+		/**
+		 * Add event listener.
+		 * @public
+		 * @param {string} event - Event name.
+		 * @param {Function} listener - Event listener function.
+		 * @returns {Object} This remote instance for chaining.
+		 * @example
+		 * remote.on('log', (data) => console.log(data));
+		 * remote.on('error', (data) => console.error(data));
+		 */
+		on: function(event, listener) {
+			emitter.on(event, listener);
+			return remoteApi;
+		},
+		
+		/**
+		 * Remove event listener.
+		 * @public
+		 * @param {string} event - Event name.
+		 * @param {Function} listener - Event listener function.
+		 * @returns {Object} This remote instance for chaining.
+		 * @example
+		 * remote.off('log', logHandler);
+		 */
+		off: function(event, listener) {
+			emitter.off(event, listener);
+			return remoteApi;
+		},
+		
+		/**
+		 * Add one-time event listener.
+		 * @public
+		 * @param {string} event - Event name.
+		 * @param {Function} listener - Event listener function.
+		 * @returns {Object} This remote instance for chaining.
+		 * @example
+		 * remote.once('log', (data) => console.log('First log:', data));
+		 */
+		once: function(event, listener) {
+			emitter.once(event, listener);
+			return remoteApi;
+		},
+		
+		/**
+		 * Emit an event.
+		 * @public
+		 * @param {string} event - Event name.
+		 * @param {...any} args - Event arguments.
+		 * @returns {boolean} True if event had listeners.
+		 * @example
+		 * remote.emit('custom-event', { data: 'example' });
+		 */
+		emit: function(event, ...args) {
+			return emitter.emit(event, ...args);
+		},
 		/**
 		 * Returns the current connection status as tracked by the module, or does a live check if requested.
 		 * @function
@@ -578,6 +731,8 @@ export default function createRemote(config) {
 		 * @param {string} mode - 'get' or 'set'.
 		 * @param {boolean} [overrideQuiet] - Optionally override the quiet flag for this call.
 		 * @returns {Promise<void>}
+		 * @fires Remote#log - Emitted with settings operation status and results
+		 * @fires Remote#error - Emitted if settings operations fail
 		 * @example
 		 * remote.handleSettings('get', false);
 		 */
@@ -591,7 +746,7 @@ export default function createRemote(config) {
 			return client
 				.connect(ip, port)
 				.then(() => {
-					if (!useQuiet) logWithTime(`Connected to ${host}`);
+					if (!useQuiet) emitLog("info", `Connected to ${host}`, "handleSettings");
 					let chain = Promise.resolve();
 					keys.forEach((item) => {
 						chain = chain.then(() => {
@@ -607,9 +762,9 @@ export default function createRemote(config) {
 								.then((result) => {
 									if (!useQuiet) {
 										if (mode === "set") {
-											logWithTime(`Set ${item.ns} ${item.key} to ${item.value}`);
+											emitLog("info", `Set ${item.ns} ${item.key} to ${item.value}`, "handleSettings");
 										} else {
-											logWithTime(`${item.ns} ${item.key}: ${result.toString().trim()}`);
+											emitLog("info", `${item.ns} ${item.key}: ${result.toString().trim()}`, "handleSettings");
 										}
 									}
 								});
@@ -619,11 +774,11 @@ export default function createRemote(config) {
 				})
 				.then(() => client.disconnect(ip, port))
 				.then(() => {
-					if (!useQuiet) logWithTime("Disconnected cleanly");
+					if (!useQuiet) emitLog("info", "Disconnected cleanly", "handleSettings");
 				})
 				.catch((err) => {
 					if (err.message && err.message.includes("disconnected")) {
-						if (!useQuiet) warnWithTime("Warning: Device already disconnected before explicit disconnect call.");
+						if (!useQuiet) emitLog("warn", "Device already disconnected before explicit disconnect call", "handleSettings");
 					} else {
 						return handleDisconnectError(err);
 					}
@@ -635,6 +790,8 @@ export default function createRemote(config) {
 		 * @public
 		 * @param {function(Error=, any=)=} [cb]
 		 * @returns {Promise|undefined}
+		 * @fires Remote#log - Emitted with connection status information
+		 * @fires Remote#error - Emitted if connection fails or ADB errors occur
 		 * @example
 		 * await remote.connect();
 		 * remote.connect((err) => { ... });
@@ -648,6 +805,8 @@ export default function createRemote(config) {
 		 * @public
 		 * @param {function(Error=, any=)=} [cb]
 		 * @returns {Promise|undefined}
+		 * @fires Remote#log - Emitted with disconnection status information
+		 * @fires Remote#error - Emitted if disconnection fails
 		 * @example
 		 * await remote.disconnect();
 		 * remote.disconnect((err) => { ... });
@@ -806,7 +965,9 @@ export default function createRemote(config) {
 				wrapAsync(function (keyName, options) {
 					options = options || {};
 					if (!keycodes[keyName]) {
-						return Promise.reject(new Error("Unknown key: " + keyName));
+						const error = new Error("Unknown key: " + keyName);
+						emitError(error, "keyboard.key", `Unknown key: ${keyName}`);
+						return Promise.reject(error);
 					}
 					if (!options.forceKeycode) {
 						// Try inputText for single character keys
@@ -890,3 +1051,32 @@ export default function createRemote(config) {
 	};
 	return remoteApi;
 }
+
+/**
+ * Create and return a ready-to-use Android TV Remote instance.
+ * @public
+ * @param {RemoteConfig} config - Configuration for the remote.
+ * @returns {Promise<Remote>} Resolves with a ready remote instance.
+ * 
+ * @description
+ * Creates a remote instance and waits for initialization to complete if autoConnect is enabled.
+ * 
+ * @example
+ * // ESM with event handling
+ * const remote = await createAndroidTVRemote({ ip: "192.168.1.100" });
+ * remote.on('log', (data) => console.log(data));
+ * remote.on('error', (data) => console.error(data));
+ */
+export async function createAndroidTVRemote(config) {
+	const remote = createRemote(config);
+	
+	// Only wait for initialization if autoConnect is enabled
+	if (config.autoConnect !== false) {
+		await remote.initPromise;
+	}
+	
+	return remote;
+}
+
+// Add static create method to the default export
+createRemote.create = createAndroidTVRemote;

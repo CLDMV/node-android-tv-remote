@@ -36,10 +36,11 @@ class AndroidTVSetup extends EventEmitter {
 	 */
 	constructor(options = {}) {
 		super();
+		const { ip, port = 5555, quiet = false, autoConnect = true } = options;
 		this.ip = ip;
 		this.port = port;
 		this.quiet = quiet;
-		this.remote = createRemote({ ip, port, quiet });
+		this.remote = createRemote({ ip, port, quiet, autoConnect });
 		this.host = `${ip}:${port}`;
 	}
 

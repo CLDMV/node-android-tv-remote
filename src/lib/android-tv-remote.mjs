@@ -329,7 +329,7 @@ export default function createRemote(config) {
 	const initPromise = Promise.race([
 		realInitPromise,
 		new Promise((_, reject) => {
-			setTimeout(function () {
+			setTimeout(() => {
 				reject(new Error("ADB initPromise timed out"));
 			}, INIT_TIMEOUT_MS);
 		})
@@ -343,7 +343,7 @@ export default function createRemote(config) {
 	function resetDisconnectTimer() {
 		if (!autoDisconnect) return;
 		if (disconnectTimer) clearTimeout(disconnectTimer);
-		disconnectTimer = setTimeout(function () {
+		disconnectTimer = setTimeout(() => {
 			if (connected) disconnect();
 		}, disconnectTimeout * 1000);
 	}
@@ -431,12 +431,12 @@ export default function createRemote(config) {
 		}
 		return client
 			.connect(ip, port)
-			.then(function () {
+			.then(() => {
 				connected = true;
 				if (!quiet) emitLog("info", `Connected to ${host}`, "connect");
 				startHeartbeat();
 			})
-			.catch(function (err) {
+			.catch((err) => {
 				if (err.message && err.message.includes("already connected")) {
 					if (!quiet) emitLog("warn", "Device already connected", "connect");
 					connected = true;
@@ -462,12 +462,12 @@ export default function createRemote(config) {
 		stopHeartbeat();
 		return client
 			.disconnect(ip, port)
-			.then(function () {
+			.then(() => {
 				connected = false;
 				if (!quiet) emitLog("info", `Disconnected from ${host}`, "disconnect");
 				return true;
 			})
-			.catch(function (err) {
+			.catch((err) => {
 				if (err.message && err.message.includes("disconnected")) {
 					if (!quiet) emitLog("warn", "Device already disconnected before explicit disconnect call", "disconnect");
 					connected = false;
@@ -485,7 +485,7 @@ export default function createRemote(config) {
 	 * @returns {Promise<any>}
 	 */
 	function inputKeycode(code) {
-		return ensureConnected().then(function () {
+		return ensureConnected().then(() => {
 			resetDisconnectTimer();
 			return device.shell("input keyevent " + code);
 		});
@@ -500,7 +500,7 @@ export default function createRemote(config) {
 	 */
 	function inputKeycodeLongPress(code) {
 		const cmd = "sendevent " + inputDevice + " 1 " + code + " 1 && " + "sleep 1 && " + "sendevent " + inputDevice + " 1 " + code + " 0";
-		return ensureConnected().then(function () {
+		return ensureConnected().then(() => {
 			resetDisconnectTimer();
 			return device.shell(cmd);
 		});
@@ -515,7 +515,7 @@ export default function createRemote(config) {
 	 */
 	function inputText(text) {
 		const escaped = text.replace(/ /g, "%s");
-		return ensureConnected().then(function () {
+		return ensureConnected().then(() => {
 			resetDisconnectTimer();
 			return device.shell('input text "' + escaped + '"');
 		});
@@ -528,34 +528,18 @@ export default function createRemote(config) {
 	for (let i = 0; i < 26; i++) {
 		const letter = String.fromCharCode(97 + i);
 		const code = 29 + i;
-		keyboardKeys[letter] = (function (code) {
-			return function () {
-				return inputKeycode(code);
-			};
-		})(code);
-		keyboardShiftKeys[letter] = (function (code) {
-			return function () {
-				return inputKeycode(keycodes.shiftLeft).then(function () {
-					return inputKeycode(code);
-				});
-			};
+		keyboardKeys[letter] = ((code) => () => inputKeycode(code))(code);
+		keyboardShiftKeys[letter] = ((code) => () => {
+			return inputKeycode(keycodes.shiftLeft).then(() => inputKeycode(code));
 		})(code);
 	}
 
-	keyboardKeys.enter = function () {
-		return inputKeycode(keycodes.enter);
-	};
-	keyboardKeys.space = function () {
-		return inputKeycode(keycodes.space);
-	};
-	keyboardKeys.del = function () {
-		return inputKeycode(keycodes.del);
-	};
+	keyboardKeys.enter = () => inputKeycode(keycodes.enter);
+	keyboardKeys.space = () => inputKeycode(keycodes.space);
+	keyboardKeys.del = () => inputKeycode(keycodes.del);
 
-	keyboardShiftKeys.enter = function () {
-		return inputKeycode(keycodes.shiftLeft).then(function () {
-			return inputKeycode(keycodes.enter);
-		});
+	keyboardShiftKeys.enter = () => {
+		return inputKeycode(keycodes.shiftLeft).then(() => inputKeycode(keycodes.enter));
 	};
 
 	/**
@@ -642,7 +626,7 @@ export default function createRemote(config) {
 		 * remote.on('log', (data) => console.log(data));
 		 * remote.on('error', (data) => console.error(data));
 		 */
-		on: function(event, listener) {
+		on(event, listener) {
 			emitter.on(event, listener);
 			return remoteApi;
 		},
@@ -656,7 +640,7 @@ export default function createRemote(config) {
 		 * @example
 		 * remote.off('log', logHandler);
 		 */
-		off: function(event, listener) {
+		off(event, listener) {
 			emitter.off(event, listener);
 			return remoteApi;
 		},
@@ -670,7 +654,7 @@ export default function createRemote(config) {
 		 * @example
 		 * remote.once('log', (data) => console.log('First log:', data));
 		 */
-		once: function(event, listener) {
+		once(event, listener) {
 			emitter.once(event, listener);
 			return remoteApi;
 		},
@@ -684,7 +668,7 @@ export default function createRemote(config) {
 		 * @example
 		 * remote.emit('custom-event', { data: 'example' });
 		 */
-		emit: function(event, ...args) {
+		emit(event, ...args) {
 			return emitter.emit(event, ...args);
 		},
 		/**
@@ -703,7 +687,7 @@ export default function createRemote(config) {
 		 * @example
 		 * remote.getKeyboardKeys();
 		 */
-		getKeyboardKeys: function () {
+		getKeyboardKeys() {
 			return getKeyboardKeys.call(remoteApi);
 		},
 		/**
@@ -712,7 +696,7 @@ export default function createRemote(config) {
 		 * @example
 		 * remote.getPressCommands();
 		 */
-		getPressCommands: function () {
+		getPressCommands() {
 			return getPressCommands.call(remoteApi);
 		},
 		/**
@@ -736,7 +720,7 @@ export default function createRemote(config) {
 		 * @example
 		 * remote.handleSettings('get', false);
 		 */
-		handleSettings: function (mode, overrideQuiet) {
+		handleSettings(mode, overrideQuiet) {
 			const keys = [
 				{ ns: "system", key: "screen_off_timeout", value: 2147483647 },
 				{ ns: "secure", key: "sleep_timeout", value: 0 },
@@ -841,7 +825,7 @@ export default function createRemote(config) {
 			 */
 			const obj = {};
 			const longObj = {};
-			remoteKeys.forEach(function (key) {
+			remoteKeys.forEach((key) => {
 				/**
 				 * Sends the corresponding keycode for this remote key.
 				 * @returns {Promise<any>}
@@ -982,7 +966,7 @@ export default function createRemote(config) {
 					// Dynamically add all key functions and .keycode subobject
 					...(() => {
 						const keyFns = {};
-						Object.keys(keycodes).forEach(function (keyName) {
+						Object.keys(keycodes).forEach((keyName) => {
 							/**
 							 * Sends this key using inputText (if possible) or keycode fallback.
 							 * @returns {Promise<any>}
@@ -1014,7 +998,7 @@ export default function createRemote(config) {
 					 */
 					shift: (() => {
 						const shiftFns = {};
-						Object.keys(keycodes).forEach(function (keyName) {
+						Object.keys(keycodes).forEach((keyName) => {
 							/**
 							 * Sends this key with shift using inputText (if possible) or keycode fallback.
 							 * @returns {Promise<any>}
@@ -1026,7 +1010,7 @@ export default function createRemote(config) {
 								if (!options.forceKeycode && keyName.length === 1) {
 									return inputText(keyName.toUpperCase());
 								}
-								return inputKeycodeWrapped(keycodes.shiftLeft).then(function () {
+								return inputKeycodeWrapped(keycodes.shiftLeft).then(() => {
 									return inputKeycodeLongPressWrapped(keycodes[keyName]);
 								});
 							});
@@ -1038,7 +1022,7 @@ export default function createRemote(config) {
 							 * keyboard.key.shift.a.keycode();
 							 */
 							shiftFns[keyName].keycode = wrapAsync(function () {
-								return inputKeycodeWrapped(keycodes.shiftLeft).then(function () {
+								return inputKeycodeWrapped(keycodes.shiftLeft).then(() => {
 									return inputKeycodeLongPressWrapped(keycodes[keyName]);
 								});
 							});

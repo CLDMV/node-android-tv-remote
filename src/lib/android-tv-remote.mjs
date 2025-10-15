@@ -61,6 +61,7 @@
  * @property {boolean} [maintainConnection=true] - Whether to maintain the ADB connection with a heartbeat.
  * @property {number} [heartbeatInterval=30000] - Heartbeat interval in ms (default 30s).
  * @property {number} [connectionCheckInterval=30000] - Interval in ms for periodic connection checks (default 30s).
+ * @property {number} [connectTimeout=10000] - Timeout in ms for ADB connection attempts (default 10s).
  * @property {boolean} [quiet=true] - Suppress log events if true (errors are always emitted).
  */
 
@@ -258,7 +259,10 @@ export default function createRemote(config) {
 	const port = config.port || 5555;
 	const inputDevice = config.inputDevice || "/dev/input/event0";
 	const host = ip + ":" + port;
-	const client = Adb.createClient();
+	const connectTimeout = typeof config.connectTimeout === "number" ? config.connectTimeout : 10000;
+	const client = Adb.createClient({
+		timeout: connectTimeout
+	});
 	const device = client.getDevice(host);
 	let connected = false;
 	const autoConnect = config.autoConnect !== false; // default true

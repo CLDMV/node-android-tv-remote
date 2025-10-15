@@ -1,6 +1,6 @@
 {
 	"name": "@cldmv/node-android-tv-remote",
-	"version": "1.5.5",
+	"version": "2.0.0",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
 	"exports": {
@@ -47,5 +47,8 @@
 	},
 	"devDependencies": {
 		"jest": "^30.0.5"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }

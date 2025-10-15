@@ -24,6 +24,15 @@
 import createRemote from "../android-tv-remote.mjs";
 import adbkit from "@devicefarmer/adbkit";
 import { EventEmitter } from "events";
+
+/**
+ * Android keycodes mapping loaded from JSON file.
+ * @internal
+ * @type {Object.<string, number>}
+ * @see https://developer.android.com/reference/android/view/KeyEvent
+ */
+import keycodes from "../../data/keycodes.json" with { type: "json" };
+
 const Adb = adbkit.Adb;
 
 class AndroidTVSetup extends EventEmitter {
@@ -144,26 +153,122 @@ class AndroidTVSetup extends EventEmitter {
 
 	/**
 	 * Ensures the device is awake and on the home screen.
+	 * Checks initial state, sends all necessary commands, then verifies final state.
+	 * Only reports errors for states that remain incorrect after all commands are sent.
 	 */
 	async ensureAwake() {
-		// Use the remote's ADB client for dumpsys power
-		const client = Adb.createClient();
-		const device = client.getDevice(this.host);
-		const output = await device
-			.shell("dumpsys power")
-			.then(Adb.util.readAll)
-			.then((b) => b.toString());
-		const parsed = this.parsePowerState(output);
-		this.emitLog("info", "\n--- Power State ---", "ensureAwake");
-		this.emitLog("info", `mIsPowered: ${parsed.mIsPowered}`, "ensureAwake");
-		this.emitLog("info", `mWakefulness: ${parsed.mWakefulness}`, "ensureAwake");
-		this.emitLog("info", `mDisplayReady: ${parsed.mDisplayReady}`, "ensureAwake");
-		this.emitLog("info", "-------------------\n", "ensureAwake");
-		// Use remote.inputKeycode for keyevents
-		if (parsed.mIsPowered !== "true") await this.remote.inputKeycode(26);
-		if (parsed.mWakefulness !== "Awake") await this.remote.inputKeycode(224);
-		if (parsed.mDisplayReady !== "true") await this.remote.inputKeycode(26);
-		await this.remote.inputKeycode(3); // HOME
+		this.emitLog("info", "=== Starting ensureAwake sequence ===", "ensureAwake");
+
+		// Helper function to get current power state
+		const getCurrentPowerState = async () => {
+			const client = Adb.createClient();
+			const device = client.getDevice(this.host);
+			const output = await device
+				.shell("dumpsys power")
+				.then(Adb.util.readAll)
+				.then((b) => b.toString());
+			return this.parsePowerState(output);
+		};
+
+		// Helper function to emit power state
+		const emitPowerState = (parsed, context = "") => {
+			const prefix = context ? `${context} - ` : "";
+			this.emitLog("info", `${prefix}Power State:`, "ensureAwake");
+			this.emitLog("info", `  mIsPowered: ${parsed.mIsPowered}`, "ensureAwake");
+			this.emitLog("info", `  mWakefulness: ${parsed.mWakefulness}`, "ensureAwake");
+			this.emitLog("info", `  mDisplayReady: ${parsed.mDisplayReady}`, "ensureAwake");
+		};
+
+		// Get initial state
+		let powerState = await getCurrentPowerState();
+		emitPowerState(powerState, "Initial");
+
+		// Track what commands we need to send
+		const commandsToSend = [];
+
+		// Check what needs to be fixed
+		if (powerState.mIsPowered !== "true") {
+			this.emitLog("info", `Device not powered (${powerState.mIsPowered}), will send POWER keycode`, "ensureAwake");
+			commandsToSend.push({ keycode: keycodes.power, reason: "power on device" });
+		} else {
+			this.emitLog("info", "✅ Device already powered", "ensureAwake");
+		}
+
+		if (powerState.mWakefulness !== "Awake") {
+			this.emitLog("info", `Device not awake (${powerState.mWakefulness}), will send WAKEUP keycode`, "ensureAwake");
+			commandsToSend.push({ keycode: keycodes.wakeup, reason: "wake device" });
+		} else {
+			this.emitLog("info", "✅ Device already awake", "ensureAwake");
+		}
+
+		if (powerState.mDisplayReady !== "true") {
+			this.emitLog("info", `Display not ready (${powerState.mDisplayReady}), will send POWER keycode`, "ensureAwake");
+			commandsToSend.push({ keycode: keycodes.power, reason: "ready display" });
+		} else {
+			this.emitLog("info", "✅ Display already ready", "ensureAwake");
+		}
+
+		// Always send HOME to ensure we're on home screen
+		commandsToSend.push({ keycode: keycodes.home, reason: "ensure home screen" });
+
+		// Execute all commands with delays between them
+		if (commandsToSend.length > 0) {
+			this.emitLog("info", `Sending ${commandsToSend.length} keycode(s)...`, "ensureAwake");
+			
+			for (let i = 0; i < commandsToSend.length; i++) {
+				const cmd = commandsToSend[i];
+				this.emitLog("info", `Sending keycode ${cmd.keycode} to ${cmd.reason}`, "ensureAwake");
+				await this.remote.inputKeycode(cmd.keycode);
+				
+				// Add delay between commands (except after the last one)
+				if (i < commandsToSend.length - 1) {
+					await new Promise(resolve => setTimeout(resolve, 300));
+				}
+			}
+
+			// Wait for commands to take effect
+			this.emitLog("info", "Waiting for commands to take effect...", "ensureAwake");
+			await new Promise(resolve => setTimeout(resolve, 800));
+		}
+
+		// Get final state and check results
+		powerState = await getCurrentPowerState();
+		emitPowerState(powerState, "Final");
+
+		// Check final state and only report persistent issues
+		const issues = [];
+		
+		if (powerState.mIsPowered !== "true") {
+			issues.push(`Device still not powered: ${powerState.mIsPowered}`);
+		}
+		
+		if (powerState.mWakefulness !== "Awake") {
+			issues.push(`Device still not awake: ${powerState.mWakefulness}`);
+		}
+		
+		if (powerState.mDisplayReady !== "true") {
+			issues.push(`Display still not ready: ${powerState.mDisplayReady}`);
+		}
+
+		// Report results
+		if (issues.length === 0) {
+			this.emitLog("info", "🎉 ensureAwake completed successfully - device is fully ready", "ensureAwake");
+		} else {
+			// Log individual issues as warnings first
+			issues.forEach(issue => {
+				this.emitLog("warn", issue, "ensureAwake");
+			});
+			
+			// Then emit a single error for the overall failure
+			this.emitError(
+				new Error(`ensureAwake failed with ${issues.length} persistent issue(s): ${issues.join(', ')}`), 
+				"ensureAwake", 
+				"Device not in expected final state after commands"
+			);
+		}
+
+		this.emitLog("info", "=== ensureAwake sequence complete ===", "ensureAwake");
+		return powerState;
 	}
 
 	/**

@@ -1,7 +1,21 @@
+/**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /test/connect-readall.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:57:06 -07:00 (1760551026)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
 // Test script to connect to an ADB device and read settings.
-// Usage: node test/connect-readall.js <ip> [port] [get|set] [--quiet]
-const AndroidTVSetup = require("../src/lib/adb/setup");
-const readline = require("readline");
+// Usage: node test/connect-readall.mjs <ip> [port] [get|set] [--quiet]
+
+import AndroidTVSetup from "../src/lib/adb/setup.mjs";
+import readline from "readline";
 
 async function main() {
 	const ip = process.argv[2];
@@ -10,7 +24,7 @@ async function main() {
 	const quiet = process.argv.includes("--quiet");
 
 	if (!ip) {
-		console.error("Usage: node test/connect-readall.js <ip> [port] [get|set] [--quiet]");
+		console.error("Usage: node test/connect-readall.mjs <ip> [port] [get|set] [--quiet]");
 		process.exit(1);
 	}
 

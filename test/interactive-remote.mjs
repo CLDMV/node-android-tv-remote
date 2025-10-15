@@ -1,9 +1,22 @@
+/**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /test/interactive-remote.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:57:02 -07:00 (1760551022)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
 // Interactive test script for Android TV Remote
 // Prompts for IP and port, connects, and sends button presses at intervals.
-// Usage: node test/interactive-remote.js
+// Usage: node test/interactive-remote.mjs
 
-const readline = require("readline");
-const createRemote = require("../src/lib/android-tv-remote");
+import readline from "readline";
+import createRemote from "../src/lib/android-tv-remote.mjs";
 
 /**
  * Prompts the user for input in the terminal.

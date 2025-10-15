@@ -1,13 +1,24 @@
-// @ts-check
+/**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /test/retry-init-adb.test.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:57:13 -07:00 (1760551033)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
 
 /**
  * Test for ADB initialization retry logic using the real android-tv-remote module.
  *
- * To run: node test/retry-init-adb.test.js
+ * To run: node test/retry-init-adb.test.mjs
  */
 
-const assert = require("assert");
-const createRemote = require("../src/lib/android-tv-remote");
+import assert from "assert";
+import createRemote from "../src/lib/android-tv-remote.mjs";
 
 /**
  * Attempts to initialize ADB repeatedly until successful or max attempts.

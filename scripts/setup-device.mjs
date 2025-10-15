@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const readline = require("readline");
-const AndroidTVSetup = require("../src/lib/adb/setup");
+import readline from "readline";
+import AndroidTVSetup from "../src/lib/adb/setup.mjs";
 
 /**
  * Interactive CLI for setting up a new Android TV device.

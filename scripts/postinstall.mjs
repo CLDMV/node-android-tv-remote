@@ -1,8 +1,8 @@
 /**
  * Postinstall script to check for adb and print install instructions if missing.
  */
-const { execSync } = require("child_process");
-const os = require("os");
+import { execSync } from "child_process";
+import os from "os";
 
 function hasAdb() {
 	try {

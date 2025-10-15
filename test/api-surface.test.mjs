@@ -1,11 +1,24 @@
 /**
- * Test for getKeyboardKeys and getPressCommands methods of the android-tv-remote module.
- *
- * Usage: Run with `node test/api-surface.test.js`
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /test/api-surface.test.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:56:52 -07:00 (1760551012)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
  */
 
-const assert = require("assert");
-const createRemote = require("../src/lib/android-tv-remote");
+/**
+ * Test for getKeyboardKeys and getPressCommands methods of the android-tv-remote module.
+ *
+ * Usage: Run with `node test/api-surface.test.mjs`
+ */
+
+import assert from "assert";
+import createRemote from "../src/lib/android-tv-remote.mjs";
 
 // Minimal config for instantiation (no real device needed for API surface test)
 const remote = createRemote({ ip: "127.0.0.1", autoConnect: false, maintainConnection: false, quiet: true });

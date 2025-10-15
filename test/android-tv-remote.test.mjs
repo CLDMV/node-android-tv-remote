@@ -1,4 +1,17 @@
-const Remote = require("../src/lib/android-tv-remote");
+/**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /test/android-tv-remote.test.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:57:20 -07:00 (1760551040)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
+import Remote from "../src/lib/android-tv-remote.mjs";
 
 // Usage: Set ANDROID_TV_IP and ANDROID_TV_PORT env vars before running Jest
 const TEST_IP = process.env.ANDROID_TV_IP || "192.168.1.100";

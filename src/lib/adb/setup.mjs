@@ -1,4 +1,17 @@
 /**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /src/lib/adb/setup.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:34:44 -07:00 (1760549684)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
+/**
  * AndroidTVSetup class for configuring and managing Android TV devices via ADB.
  *
  * Usage:
@@ -8,7 +21,9 @@
  *   await setup.ensureAwake();
  *   await setup.disconnect();
  */
-const createRemote = require("../android-tv-remote");
+import createRemote from "../android-tv-remote.mjs";
+import adbkit from "@devicefarmer/adbkit";
+const Adb = adbkit.Adb;
 
 class AndroidTVSetup {
 	/**
@@ -91,12 +106,13 @@ class AndroidTVSetup {
 	async remotePressShell(cmd) {
 		// Use the internal client for shell commands
 		if (this.remote && this.remote.inputKeycode) {
-			// fallback: use adbkit directly if needed
-			const adb = require("adbkit");
-			const client = adb.createClient();
-			await client.shell(this.host, cmd).then(adb.util.readAll);
+			// fallback: use @devicefarmer/adbkit directly if needed
+			const client = Adb.createClient();
+			const device = client.getDevice(this.host);
+			await device.shell(cmd).then(Adb.util.readAll);
 		} else if (this.remote && this.remote.client) {
-			await this.remote.client.shell(this.host, cmd).then(require("adbkit").util.readAll);
+			const device = this.remote.client.getDevice(this.host);
+			await device.shell(cmd).then(Adb.util.readAll);
 		}
 	}
 
@@ -105,11 +121,11 @@ class AndroidTVSetup {
 	 */
 	async ensureAwake() {
 		// Use the remote's ADB client for dumpsys power
-		const adb = require("adbkit");
-		const client = adb.createClient();
-		const output = await client
-			.shell(this.host, "dumpsys power")
-			.then(adb.util.readAll)
+		const client = Adb.createClient();
+		const device = client.getDevice(this.host);
+		const output = await device
+			.shell("dumpsys power")
+			.then(Adb.util.readAll)
 			.then((b) => b.toString());
 		const parsed = this.parsePowerState(output);
 		this.logWithTime("\n--- Power State ---");
@@ -141,4 +157,4 @@ class AndroidTVSetup {
 	}
 }
 
-module.exports = AndroidTVSetup;
+export default AndroidTVSetup;

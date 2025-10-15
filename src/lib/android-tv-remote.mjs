@@ -1,4 +1,16 @@
-// @ts-check
+/**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /src/lib/android-tv-remote.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-15 10:34:01 -07:00 (1760549641)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
 /**
  * Android TV Remote module.
  * @module android-tv-remote
@@ -19,9 +31,9 @@
 /**
  * @typedef {Object} Remote
  * @property {function(string, boolean=): Promise<void>} handleSettings - Get or set Android settings via ADB.
- * @property {function(function(Error=, any=)=): Promise|undefined} connect - Connect to the device. Supports both promise and callback styles.
- * @property {function(function(Error=, any=)=): Promise|undefined} disconnect - Disconnect from the device. Supports both promise and callback styles.
- * @property {function(number, function(Error=, any=)=): Promise|undefined} inputKeycode - Send a keycode to the device. Supports both promise and callback styles.
+ * @property {function(function(Error=, any=)=): Promise<void>|undefined} connect - Connect to the device. Supports both promise and callback styles.
+ * @property {function(function(Error=, any=)=): Promise<void>|undefined} disconnect - Disconnect from the device. Supports both promise and callback styles.
+ * @property {function(number, function(Error=, any=)=): Promise<void>|undefined} inputKeycode - Send a keycode to the device. Supports both promise and callback styles.
  * @property {function(boolean=): Promise<"connected"|"disconnected"|"unknown">} getConnectionStatus - Returns the current connection status; optionally performs a live check.
  * @property {boolean} isConnected - True if the module believes it is connected (internal state, not a live check).
  * @property {Object} press - Remote control key functions for Android TV remotes.
@@ -30,7 +42,8 @@
  * @property {Object} keyboard.key.shift - Contains all shifted key functions.
  */
 
-const adb = require("adbkit");
+import adbkit from "@devicefarmer/adbkit";
+const Adb = adbkit.Adb;
 
 /**
  * Logs a message with a datetime prefix.
@@ -126,14 +139,14 @@ function handleDisconnectError(err) {
  * @type {Object.<string, number>}
  * @see https://developer.android.com/reference/android/view/KeyEvent
  */
-const keycodes = require("../data/keycodes.json");
+import keycodes from "../data/keycodes.json" with { type: "json" };
 
 /**
  * Remote keys mapping loaded from JSON file.
  * @internal
  * @type {string[]}
  */
-const remoteKeys = require("../data/remote-keys.json");
+import remoteKeys from "../data/remote-keys.json" with { type: "json" };
 
 /**
  * Factory function to create a Remote instance.
@@ -142,7 +155,7 @@ const remoteKeys = require("../data/remote-keys.json");
  * @param {RemoteConfig} config - Configuration for the remote.
  * @returns {Remote}
  */
-module.exports = function (config) {
+export default function createRemote(config) {
 	// Ensure config is an object and has the required 'ip' property
 	if (!config || typeof config !== "object" || !config.ip) {
 		throw new Error("Missing required 'ip' property in RemoteConfig.");
@@ -151,7 +164,8 @@ module.exports = function (config) {
 	const port = config.port || 5555;
 	const inputDevice = config.inputDevice || "/dev/input/event0";
 	const host = ip + ":" + port;
-	const client = adb.createClient();
+	const client = Adb.createClient();
+	const device = client.getDevice(host);
 	let connected = false;
 	const autoConnect = config.autoConnect !== false; // default true
 	const autoDisconnect = config.autoDisconnect === true; // default false
@@ -187,6 +201,11 @@ module.exports = function (config) {
 	const realInitPromise = new Promise((resolve, reject) => {
 		initPromiseResolve = resolve;
 		initPromiseReject = reject;
+		if (!autoConnect) {
+			// Skip initialization if autoConnect is disabled
+			initPromiseResolve(undefined);
+			return;
+		}
 		(async () => {
 			try {
 				const status = await getConnectionStatus(true);
@@ -244,7 +263,7 @@ module.exports = function (config) {
 		heartbeatTimer = setInterval(() => {
 			if (!connected) return;
 			// Send a no-op shell command to keep the connection alive
-			client.shell(host, "echo heartbeat").catch(() => {});
+			device.shell("echo heartbeat").catch(() => {});
 		}, heartbeatInterval);
 		startConnectionCheck();
 	}
@@ -268,7 +287,8 @@ module.exports = function (config) {
 					await connect();
 				}
 			} catch (err) {
-				warnWithTime("Error checking device connection:", err.message || err);
+				const error = err instanceof Error ? err : new Error(String(err));
+				warnWithTime("Error checking device connection:", error.message);
 			}
 		}, connectionCheckInterval);
 	}
@@ -365,12 +385,12 @@ module.exports = function (config) {
 	 * Sends a keycode to the device, auto-connects/disconnects as needed.
 	 * @internal
 	 * @param {number} code - The Android keycode to send.
-	 * @returns {Promise}
+	 * @returns {Promise<any>}
 	 */
 	function inputKeycode(code) {
 		return ensureConnected().then(function () {
 			resetDisconnectTimer();
-			return client.shell(host, "input keyevent " + code);
+			return device.shell("input keyevent " + code);
 		});
 	}
 	const inputKeycodeWrapped = wrapAsync(inputKeycode);
@@ -379,13 +399,13 @@ module.exports = function (config) {
 	 * Sends a long press keycode to the device, auto-connects/disconnects as needed.
 	 * @internal
 	 * @param {number} code - The Android keycode to send as a long press.
-	 * @returns {Promise}
+	 * @returns {Promise<any>}
 	 */
 	function inputKeycodeLongPress(code) {
 		const cmd = "sendevent " + inputDevice + " 1 " + code + " 1 && " + "sleep 1 && " + "sendevent " + inputDevice + " 1 " + code + " 0";
 		return ensureConnected().then(function () {
 			resetDisconnectTimer();
-			return client.shell(host, cmd);
+			return device.shell(cmd);
 		});
 	}
 	const inputKeycodeLongPressWrapped = wrapAsync(inputKeycodeLongPress);
@@ -394,13 +414,13 @@ module.exports = function (config) {
 	 * Sends text input to the device, auto-connects/disconnects as needed.
 	 * @internal
 	 * @param {string} text - The text to input.
-	 * @returns {Promise}
+	 * @returns {Promise<any>}
 	 */
 	function inputText(text) {
 		const escaped = text.replace(/ /g, "%s");
 		return ensureConnected().then(function () {
 			resetDisconnectTimer();
-			return client.shell(host, 'input text "' + escaped + '"');
+			return device.shell('input text "' + escaped + '"');
 		});
 	}
 	const inputTextWrapped = wrapAsync(inputText);
@@ -581,9 +601,9 @@ module.exports = function (config) {
 							} else {
 								cmd = `settings get ${item.ns} ${item.key}`;
 							}
-							return client
-								.shell(host, cmd)
-								.then(adb.util.readAll)
+							return device
+								.shell(cmd)
+								.then(Adb.util.readAll)
 								.then((result) => {
 									if (!useQuiet) {
 										if (mode === "set") {
@@ -665,7 +685,7 @@ module.exports = function (config) {
 			remoteKeys.forEach(function (key) {
 				/**
 				 * Sends the corresponding keycode for this remote key.
-				 * @returns {Promise}
+				 * @returns {Promise<any>}
 				 * @example
 				 * press.home();
 				 */
@@ -710,7 +730,7 @@ module.exports = function (config) {
 
 				/**
 				 * Sends the corresponding keycode for this remote key as a long press.
-				 * @returns {Promise}
+				 * @returns {Promise<any>}
 				 * @example
 				 * press.long.home();
 				 */
@@ -773,7 +793,7 @@ module.exports = function (config) {
 			 * Sends text input to the device.
 			 * @public
 			 * @param {string} text - The text to input.
-			 * @returns {Promise}
+			 * @returns {Promise<any>}
 			 * @example
 			 * keyboard.text('hello');
 			 */
@@ -804,7 +824,7 @@ module.exports = function (config) {
 						Object.keys(keycodes).forEach(function (keyName) {
 							/**
 							 * Sends this key using inputText (if possible) or keycode fallback.
-							 * @returns {Promise}
+							 * @returns {Promise<any>}
 							 * @example
 							 * keyboard.key.a();
 							 */
@@ -817,7 +837,7 @@ module.exports = function (config) {
 							});
 							/**
 							 * Sends this key using keycode only.
-							 * @returns {Promise}
+							 * @returns {Promise<any>}
 							 * @example
 							 * keyboard.key.a.keycode();
 							 */
@@ -836,7 +856,7 @@ module.exports = function (config) {
 						Object.keys(keycodes).forEach(function (keyName) {
 							/**
 							 * Sends this key with shift using inputText (if possible) or keycode fallback.
-							 * @returns {Promise}
+							 * @returns {Promise<any>}
 							 * @example
 							 * keyboard.key.shift.a();
 							 */
@@ -852,7 +872,7 @@ module.exports = function (config) {
 
 							/**
 							 * Sends this key with shift using keycode only.
-							 * @returns {Promise}
+							 * @returns {Promise<any>}
 							 * @example
 							 * keyboard.key.shift.a.keycode();
 							 */
@@ -869,4 +889,4 @@ module.exports = function (config) {
 		}
 	};
 	return remoteApi;
-};
+}

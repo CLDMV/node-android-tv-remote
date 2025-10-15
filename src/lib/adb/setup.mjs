@@ -6,7 +6,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-15 10:34:44 -07:00 (1760549684)
+ *	@Last modified time: 2025-10-15 12:04:44 -07:00 (1760555084)
  *	-----
  *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
  */
@@ -63,7 +63,7 @@ class AndroidTVSetup extends EventEmitter {
 			});
 		}
 	}
-	
+
 	/**
 	 * Emit an error event with structured data.
 	 * @private
@@ -95,7 +95,11 @@ class AndroidTVSetup extends EventEmitter {
 			} else {
 				this.emitError(err, "disconnect");
 				if (err.message && err.message.includes("device unauthorized")) {
-					this.emitLog("error", "Your device is unauthorized. Please check your TV and accept the authorization dialog to allow this computer to connect via ADB.", "disconnect");
+					this.emitLog(
+						"error",
+						"Your device is unauthorized. Please check your TV and accept the authorization dialog to allow this computer to connect via ADB.",
+						"disconnect"
+					);
 				}
 				// Don't exit the process, just emit the error
 				throw err;

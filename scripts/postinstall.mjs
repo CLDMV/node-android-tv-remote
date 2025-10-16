@@ -1,4 +1,17 @@
 /**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /scripts/postinstall.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-16 06:45:20 -07:00 (1760622320)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
+/**
  * Postinstall script to check for adb and print install instructions if missing.
  */
 import { execSync } from "child_process";

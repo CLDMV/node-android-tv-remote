@@ -5,7 +5,7 @@
  * Usage: node test/dual/device1.mjs
  */
 
-import AndroidTVSetup from "../../src/lib/adb/setup.mjs";
+import createRemote from "../../src/lib/android-tv-remote.mjs";
 
 const DEVICE_IP = "10.6.0.133";
 const DEVICE_PORT = 5555;
@@ -38,11 +38,10 @@ const testDevice1 = async () => {
 		log("INFO", `Process ID: ${process.pid}`);
 		log("INFO", `Target Device: ${DEVICE_IP}:${DEVICE_PORT}`);
 
-		// Create setup with comprehensive logging
-		setup = new AndroidTVSetup({
+		// Create remote with comprehensive logging
+		setup = await createRemote({
 			ip: DEVICE_IP,
 			port: DEVICE_PORT,
-			quiet: false,
 			autoConnect: false
 		});
 

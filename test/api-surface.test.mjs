@@ -21,7 +21,7 @@ import assert from "assert";
 import createRemote from "../src/lib/android-tv-remote.mjs";
 
 // Minimal config for instantiation (no real device needed for API surface test)
-const remote = createRemote({ ip: "127.0.0.1", autoConnect: false, maintainConnection: false, quiet: true });
+const remote = await createRemote({ ip: "127.0.0.1", autoConnect: false, maintainConnection: false, quiet: true });
 
 /**
  * Test getKeyboardKeys returns all top-level function keys from keyboard.key

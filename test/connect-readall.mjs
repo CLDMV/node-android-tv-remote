@@ -14,7 +14,7 @@
 // Test script to connect to an ADB device and read settings.
 // Usage: node test/connect-readall.mjs <ip> [port] [get|set] [--quiet]
 
-import AndroidTVSetup from "../src/lib/adb/setup.mjs";
+import createRemote from "../src/lib/android-tv-remote.mjs";
 
 /**
  * Parse and validate command line arguments with better error handling.
@@ -92,31 +92,30 @@ async function main() {
 		console.log(`Running in ${mode} mode on ${ip}:${port}`);
 	}
 
-	const setup = new AndroidTVSetup({ ip, port, quiet, autoConnect: false });
-
-	// Set up event listeners for proper error handling
-	setup.on("error", (errorData) => {
-		console.error(`Error from ${errorData.source}:`, errorData.message);
-		if (errorData.error && errorData.error.code === "ENOENT") {
-			console.error("\nADB is not installed or not in your PATH.");
-			console.error("Please install ADB first: https://developer.android.com/studio/releases/platform-tools");
-		}
-	});
-
-	setup.on("log", (logData) => {
-		if (!quiet || logData.level === "error") {
-			const prefix = logData.level === "error" ? "ERROR" : logData.level === "warn" ? "WARN" : "INFO";
-			console.log(`[${prefix}] ${logData.message}`);
-		}
-	});
-
 	try {
-		await setup.connect();
+		const remote = await createRemote({ ip, port, autoConnect: true });
+
+		// Set up event listeners for proper error handling
+		remote.on("error", (errorData) => {
+			console.error(`Error from ${errorData.source}:`, errorData.message);
+			if (errorData.error && errorData.error.code === "ENOENT") {
+				console.error("\nADB is not installed or not in your PATH.");
+				console.error("Please install ADB first: https://developer.android.com/studio/releases/platform-tools");
+			}
+		});
+
+		remote.on("log", (logData) => {
+			if (!quiet || logData.level === "error") {
+				const prefix = logData.level === "error" ? "ERROR" : logData.level === "warn" ? "WARN" : "INFO";
+				console.log(`[${prefix}] ${logData.message}`);
+			}
+		});
+
 		if (mode === "set") {
-			await setup.setSettings();
+			await remote.setSettings();
 		}
-		await setup.ensureAwake();
-		await setup.disconnect();
+		await remote.ensureAwake();
+		await remote.disconnect();
 
 		if (!quiet) {
 			console.log(`\nCompleted ${mode} mode on ${ip}:${port}`);

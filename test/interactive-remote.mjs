@@ -49,7 +49,7 @@ async function main() {
 		process.exit(1);
 	}
 	try {
-		const remote = createRemote({ ip, port });
+		const remote = await createRemote({ ip, port });
 		await remote.connect();
 		console.log(`Connected to ${ip}:${port}`);
 		// List of buttons to press (as method names on remote.press)

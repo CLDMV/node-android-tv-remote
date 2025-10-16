@@ -1,11 +1,24 @@
 /**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /test/dual-device-ensureawake.mjs
+ *	@Date: 2025-10-15 12:36:48 -07:00 (1760557008)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-16 06:44:22 -07:00 (1760622262)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
+
+/**
  * Comprehensive test script for dual device ensureAwake operations.
  * Tests both 10.6.0.133 and 10.6.0.18 devices simultaneously.
  *
  * Usage: node test/dual-device-ensureawake.mjs
  */
 
-import AndroidTVSetup from "../src/lib/adb/setup.mjs";
+import createRemote from "../src/lib/android-tv-remote.mjs";
 
 /**
  * Enhanced logger that prefixes output with device identifier and timestamp
@@ -24,54 +37,39 @@ const log = (deviceId, level, message, data = null) => {
 };
 
 /**
- * Creates and configures a device setup with comprehensive event handling
+ * Creates and configures a device remote with comprehensive event handling
  * @param {string} ip - Device IP address
  * @param {number} port - Device port
- * @returns {AndroidTVSetup} Configured setup instance
+ * @returns {Promise<Object>} Configured remote instance
  */
-const createDeviceSetup = (ip, port = 5555) => {
-	const setup = new AndroidTVSetup({
+const createDeviceRemote = async (ip, port = 5555) => {
+	const remote = await createRemote({
 		ip,
 		port,
-		quiet: false, // We want to see all logs
 		autoConnect: false // We'll control connection manually
 	});
 
 	// Set up comprehensive event listeners
-	setup.on("log", (logData) => {
+	remote.on("log", (logData) => {
 		log(ip, logData.level, logData.message, logData.data);
 	});
 
-	setup.on("error", (errorData) => {
+	remote.on("error", (errorData) => {
 		log(ip, "ERROR", `${errorData.source}: ${errorData.message}`, {
 			error: errorData.error.message,
 			stack: errorData.error.stack
 		});
 	});
 
-	// Add remote event listeners if available
-	if (setup.remote) {
-		setup.remote.on("log", (logData) => {
-			log(ip, logData.level, `[REMOTE] ${logData.message}`, logData.data);
-		});
+	remote.on("connect", () => {
+		log(ip, "INFO", "Connected successfully");
+	});
 
-		setup.remote.on("error", (errorData) => {
-			log(ip, "ERROR", `[REMOTE] ${errorData.source}: ${errorData.message}`, {
-				error: errorData.error.message,
-				stack: errorData.error.stack
-			});
-		});
+	remote.on("disconnect", () => {
+		log(ip, "INFO", "Disconnected successfully");
+	});
 
-		setup.remote.on("connect", () => {
-			log(ip, "INFO", "[REMOTE] Connected successfully");
-		});
-
-		setup.remote.on("disconnect", () => {
-			log(ip, "INFO", "[REMOTE] Disconnected successfully");
-		});
-	}
-
-	return setup;
+	return remote;
 };
 
 /**
@@ -82,31 +80,32 @@ const createDeviceSetup = (ip, port = 5555) => {
 const testDevice = async (ip) => {
 	const startTime = Date.now();
 	const timing = {};
-	let setup = null;
+	let remote = null;
 
 	try {
 		log(ip, "INFO", "=== Starting device test sequence ===");
 
-		// Create setup
-		timing.setupCreated = Date.now() - startTime;
-		setup = createDeviceSetup(ip);
-		log(ip, "INFO", `Setup created (${timing.setupCreated}ms)`);
+		// Create remote
+		const remoteStart = Date.now();
+		remote = await createDeviceRemote(ip);
+		timing.remoteCreated = Date.now() - remoteStart;
+		log(ip, "INFO", `Remote created (${timing.remoteCreated}ms)`);
 
 		// Connect
 		const connectStart = Date.now();
-		await setup.connect();
+		await remote.connect();
 		timing.connected = Date.now() - connectStart;
 		log(ip, "INFO", `Connected successfully (${timing.connected}ms)`);
 
 		// Ensure awake
 		const awakeStart = Date.now();
-		await setup.ensureAwake();
+		await remote.ensureAwake();
 		timing.ensureAwake = Date.now() - awakeStart;
 		log(ip, "INFO", `ensureAwake completed (${timing.ensureAwake}ms)`);
 
 		// Disconnect
 		const disconnectStart = Date.now();
-		await setup.disconnect();
+		await remote.disconnect();
 		timing.disconnected = Date.now() - disconnectStart;
 		log(ip, "INFO", `Disconnected successfully (${timing.disconnected}ms)`);
 
@@ -122,10 +121,10 @@ const testDevice = async (ip) => {
 		});
 
 		// Attempt cleanup
-		if (setup) {
+		if (remote) {
 			try {
 				log(ip, "INFO", "Attempting cleanup disconnect...");
-				await setup.disconnect();
+				await remote.disconnect();
 				log(ip, "INFO", "Cleanup disconnect successful");
 			} catch (cleanupError) {
 				log(ip, "WARN", "Cleanup disconnect failed", {

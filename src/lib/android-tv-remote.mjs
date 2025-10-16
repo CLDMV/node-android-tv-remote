@@ -6,7 +6,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-15 11:13:38 -07:00 (1760552018)
+ *	@Last modified time: 2025-10-15 21:09:09 -07:00 (1760587749)
  *	-----
  *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
  */
@@ -70,7 +70,7 @@
  * @typedef {Object} LogEventData
  * @property {string} level - Log level: 'info', 'warn', 'error', 'debug'.
  * @property {string} message - Log message.
- * @property {string} source - Source of the log message (e.g., 'connect', 'disconnect', 'handleSettings').
+ * @property {string} source - Source of the log message (e.g., 'connect', 'disconnect', 'setSettings').
  * @property {string} timestamp - ISO timestamp of when the log was created.
  * @property {any} [data] - Optional additional data related to the log.
  */
@@ -87,10 +87,13 @@
 /**
  * Android TV Remote instance with event emission capabilities.
  * @typedef {Object} Remote
- * @property {function(string, boolean=): Promise<void>} handleSettings - Get or set Android settings via ADB.
+ * @property {function(string=): Promise<void>} setSettings - Configure or retrieve Android TV settings for optimal remote operation.
  * @property {function(function(Error=, any=)=): Promise<void>|undefined} connect - Connect to the device. Supports both promise and callback styles.
  * @property {function(function(Error=, any=)=): Promise<void>|undefined} disconnect - Disconnect from the device. Supports both promise and callback styles.
  * @property {function(number, function(Error=, any=)=): Promise<void>|undefined} inputKeycode - Send a keycode to the device. Supports both promise and callback styles.
+ * @property {function(): Promise<boolean>} reboot - Reboots the device using ADB's native reboot method.
+ * @property {function(Object=): Promise<ReadableStream|void>} screencap - Takes a screenshot with optional resizing and file saving.
+ * @property {function(number=): Promise<boolean>} waitBootComplete - Waits until device has finished booting (default 60s timeout).
  * @property {function(boolean=): Promise<"connected"|"disconnected"|"unknown">} getConnectionStatus - Returns the current connection status; optionally performs a live check.
  * @property {boolean} isConnected - True if the module believes it is connected (internal state, not a live check).
  * @property {Object} press - Remote control key functions for Android TV remotes.
@@ -105,6 +108,12 @@
  * 
  * @fires Remote#log - Emitted for informational messages, warnings, and debug info.
  * @fires Remote#error - Emitted when errors occur during ADB operations.
+ * @fires Remote#screencap-start - Emitted when screenshot capture begins.
+ * @fires Remote#screencap-captured - Emitted when raw screenshot is captured.
+ * @fires Remote#screencap-processing - Emitted when image processing begins.
+ * @fires Remote#screencap-ready - Emitted when final processed stream is ready.
+ * @fires Remote#screencap-saved - Emitted when screenshot is saved to file.
+ * @fires Remote#screencap-complete - Emitted when entire screenshot operation is complete.
  * 
  * @example
  * // Event handling examples
@@ -131,6 +140,9 @@
 
 import adbkit from "@devicefarmer/adbkit";
 import { EventEmitter } from "events";
+import { createWriteStream } from "fs";
+import { pipeline } from "stream/promises";
+import sharp from "sharp";
 const Adb = adbkit.Adb;
 
 /**
@@ -180,6 +192,17 @@ function emitLog(level, message, source = "android-tv-remote", data = null) {
  * @param {string} [message] - Additional error message.
  */
 function emitError(error, source = "android-tv-remote", message = null) {
+	// Filter out libspng/PNG processing errors that occur after disconnection
+	// These are common when background operations try to process data after disconnect
+	const errorMsg = error.message || "";
+	if (errorMsg.includes('libspng') || 
+		errorMsg.includes('pngload_buffer') || 
+		errorMsg.includes('read error')) {
+		// Log as debug instead of error to avoid noise
+		emitLog("debug", `PNG processing error (likely post-disconnect): ${errorMsg}`, source);
+		return;
+	}
+	
 	emitter.emit("error", {
 		error,
 		source,
@@ -235,6 +258,32 @@ function handleDisconnectError(err) {
  * @see https://developer.android.com/reference/android/view/KeyEvent
  */
 import keycodes from "../data/keycodes.json" with { type: "json" };
+import keyboardKeys from "../data/keyboard-keys.json" with { type: "json" };
+
+/**
+ * Gets the shifted character for a given key.
+ * @private
+ * @param {string} keyName - The key name
+ * @param {string} char - The original character
+ * @returns {string} The shifted character
+ */
+function getShiftedCharacter(keyName, char) {
+	// Handle letters - convert to uppercase
+	if (/^[a-z]$/.test(char)) {
+		return char.toUpperCase();
+	}
+	
+	// Handle shifted symbols
+	const shiftMap = {
+		'1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
+		'6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
+		'-': '_', '=': '+', '[': '{', ']': '}', '\\': '|',
+		';': ':', "'": '"', ',': '<', '.': '>', '/': '?',
+		'`': '~'
+	};
+	
+	return shiftMap[char] || char;
+}
 
 /**
  * Remote keys mapping loaded from JSON file.
@@ -244,13 +293,13 @@ import keycodes from "../data/keycodes.json" with { type: "json" };
 import remoteKeys from "../data/remote-keys.json" with { type: "json" };
 
 /**
- * Factory function to create a Remote instance.
+ * Factory function to create a ready-to-use Remote instance.
  * @function
  * @public
  * @param {RemoteConfig} config - Configuration for the remote.
- * @returns {Remote}
+ * @returns {Promise<Remote>} A promise that resolves to a ready-to-use remote instance
  */
-export default function createRemote(config) {
+export default async function createRemote(config) {
 	// Ensure config is an object and has the required 'ip' property
 	if (!config || typeof config !== "object" || !config.ip) {
 		throw new Error("Missing required 'ip' property in RemoteConfig.");
@@ -265,6 +314,30 @@ export default function createRemote(config) {
 	});
 	const device = client.getDevice(host);
 	let connected = false;
+	let backgroundOperations = new Set();
+	
+	/**
+	 * Local emitError function that has access to connection state
+	 * @private
+	 * @param {Error} error - The error object
+	 * @param {string} [source] - Source of the error
+	 * @param {string} [message] - Additional error message
+	 */
+	function localEmitError(error, source = "android-tv-remote", message = null) {
+		// Filter out libspng/PNG processing errors that occur after disconnection
+		const errorMsg = error.message || "";
+		if (!connected && (errorMsg.includes('libspng') || 
+			errorMsg.includes('pngload_buffer') || 
+			errorMsg.includes('read error'))) {
+			// Log as debug instead of error to avoid noise
+			emitLog("debug", `PNG processing error (post-disconnect): ${errorMsg}`, source);
+			return;
+		}
+		
+		// Use global emitError for other cases
+		emitError(error, source, message);
+	}
+	
 	const autoConnect = config.autoConnect !== false; // default true
 	const autoDisconnect = config.autoDisconnect === true; // default false
 	const disconnectTimeout = typeof config.disconnectTimeout === "number" ? config.disconnectTimeout : 10;
@@ -458,27 +531,42 @@ export default function createRemote(config) {
 	 * @internal
 	 * @returns {Promise<void>}
 	 */
-	function disconnect() {
+	async function disconnect() {
 		if (disconnectTimer) {
 			clearTimeout(disconnectTimer);
 			disconnectTimer = null;
 		}
 		stopHeartbeat();
-		return client
-			.disconnect(ip, port)
-			.then(() => {
+		
+		// Wait for all background operations to complete before disconnecting
+		if (backgroundOperations.size > 0) {
+			if (!quiet) emitLog("info", `🔄 [DISCONNECT] Waiting for ${backgroundOperations.size} background operations to complete...`, "disconnect");
+			const waitStartTime = performance.now();
+			try {
+				await Promise.allSettled([...backgroundOperations]);
+				const waitEndTime = performance.now();
+				if (!quiet) emitLog("info", `✅ [DISCONNECT] All background operations completed in ${(waitEndTime - waitStartTime).toFixed(2)}ms`, "disconnect");
+			} catch (error) {
+				const waitEndTime = performance.now();
+				emitLog("warn", `⚠️ [DISCONNECT] Some background operations failed after ${(waitEndTime - waitStartTime).toFixed(2)}ms: ${error.message}`, "disconnect");
+			}
+		} else {
+			if (!quiet) emitLog("info", `✅ [DISCONNECT] No background operations to wait for`, "disconnect");
+		}
+		
+		try {
+			await client.disconnect(ip, port);
+			connected = false;
+			if (!quiet) emitLog("info", `Disconnected from ${host}`, "disconnect");
+			return true;
+		} catch (err) {
+			if (err.message && err.message.includes("disconnected")) {
+				if (!quiet) emitLog("warn", "Device already disconnected before explicit disconnect call", "disconnect");
 				connected = false;
-				if (!quiet) emitLog("info", `Disconnected from ${host}`, "disconnect");
 				return true;
-			})
-			.catch((err) => {
-				if (err.message && err.message.includes("disconnected")) {
-					if (!quiet) emitLog("warn", "Device already disconnected before explicit disconnect call", "disconnect");
-					connected = false;
-					return true;
-				}
-				return handleDisconnectError(err);
-			});
+			}
+			return handleDisconnectError(err);
+		}
 	}
 	const disconnectWrapped = wrapAsync(disconnect);
 
@@ -525,26 +613,6 @@ export default function createRemote(config) {
 		});
 	}
 	const inputTextWrapped = wrapAsync(inputText);
-
-	const keyboardKeys = {};
-	const keyboardShiftKeys = {};
-
-	for (let i = 0; i < 26; i++) {
-		const letter = String.fromCharCode(97 + i);
-		const code = 29 + i;
-		keyboardKeys[letter] = ((code) => () => inputKeycode(code))(code);
-		keyboardShiftKeys[letter] = ((code) => () => {
-			return inputKeycode(keycodes.shiftLeft).then(() => inputKeycode(code));
-		})(code);
-	}
-
-	keyboardKeys.enter = () => inputKeycode(keycodes.enter);
-	keyboardKeys.space = () => inputKeycode(keycodes.space);
-	keyboardKeys.del = () => inputKeycode(keycodes.del);
-
-	keyboardShiftKeys.enter = () => {
-		return inputKeycode(keycodes.shiftLeft).then(() => inputKeycode(keycodes.enter));
-	};
 
 	/**
 	 * Returns the current connection status as tracked by the module.
@@ -610,6 +678,13 @@ export default function createRemote(config) {
 		if (!this || !this.press) return [];
 		return Object.keys(this.press).filter((k) => k !== "long" && typeof this.press[k] === "function");
 	}
+
+	/**
+	 * Variable to store the last screencap data (PNG buffer) after processing.
+	 * Updated every time screencap or thumbnail is called, regardless of options.
+	 * @type {Buffer|null}
+	 */
+	let lastScreencapData = null;
 
 	const remoteApi = {
 		/**
@@ -713,64 +788,218 @@ export default function createRemote(config) {
 		get isConnected() {
 			return isConnected();
 		},
+		
 		/**
-		 * Get or set Android settings via ADB.
+		 * Returns the last screencap data (PNG stream) captured by screencap() or thumbnail().
+		 * Updated every time a screenshot is taken, regardless of options used.
+		 * @readonly
+		 * @type {ReadableStream|null}
+		 * @example
+		 * await remote.screencap({ filepath: './screenshot.png' });
+		 * console.log('Last screencap stream:', remote.lastScreencapData);
+		 * 
+		 * // Use the cached stream data
+		 * if (remote.lastScreencapData) {
+		 *   remote.lastScreencapData.pipe(someOtherStream);
+		 * }
+		 */
+		get lastScreencapData() {
+			return lastScreencapData;
+		},
+		/**
+		 * Configure or retrieve Android TV settings for optimal remote operation.
+		 * Handles power management, display settings, and system configuration.
 		 * @public
-		 * @param {string} mode - 'get' or 'set'.
-		 * @param {boolean} [overrideQuiet] - Optionally override the quiet flag for this call.
-		 * @returns {Promise<void>}
-		 * @fires Remote#log - Emitted with settings operation status and results
+		 * @param {string} [mode='set'] - 'get' to retrieve settings, 'set' to configure settings
+		 * @fires Remote#log - Emitted with settings operation results
 		 * @fires Remote#error - Emitted if settings operations fail
 		 * @example
-		 * remote.handleSettings('get', false);
+		 * await remote.setSettings(); // Set all optimal settings
+		 * await remote.setSettings('get'); // Get current settings values
 		 */
-		handleSettings(mode, overrideQuiet) {
-			const keys = [
-				{ ns: "system", key: "screen_off_timeout", value: 2147483647 },
-				{ ns: "secure", key: "sleep_timeout", value: 0 },
-				{ ns: "global", key: "stay_on_while_plugged_in", value: 3 }
-			];
-			const useQuiet = typeof overrideQuiet === "boolean" ? overrideQuiet : quiet;
-			return client
-				.connect(ip, port)
-				.then(() => {
-					if (!useQuiet) emitLog("info", `Connected to ${host}`, "handleSettings");
-					let chain = Promise.resolve();
-					keys.forEach((item) => {
-						chain = chain.then(() => {
-							let cmd;
-							if (mode === "set") {
-								cmd = `settings put ${item.ns} ${item.key} ${item.value}`;
-							} else {
-								cmd = `settings get ${item.ns} ${item.key}`;
-							}
-							return device
-								.shell(cmd)
-								.then(Adb.util.readAll)
-								.then((result) => {
-									if (!useQuiet) {
-										if (mode === "set") {
-											emitLog("info", `Set ${item.ns} ${item.key} to ${item.value}`, "handleSettings");
-										} else {
-											emitLog("info", `${item.ns} ${item.key}: ${result.toString().trim()}`, "handleSettings");
-										}
-									}
-								});
-						});
-					});
-					return chain;
-				})
-				.then(() => client.disconnect(ip, port))
-				.then(() => {
-					if (!useQuiet) emitLog("info", "Disconnected cleanly", "handleSettings");
-				})
-				.catch((err) => {
-					if (err.message && err.message.includes("disconnected")) {
-						if (!useQuiet) emitLog("warn", "Device already disconnected before explicit disconnect call", "handleSettings");
-					} else {
-						return handleDisconnectError(err);
+		async setSettings(mode = 'set') {
+			try {
+				emitLog("info", `=== ${mode === 'set' ? 'Configuring' : 'Retrieving'} Android TV settings ===`, "setSettings");
+				
+				await ensureConnected();
+				
+				// Core settings for power management and display
+				const coreSettings = [
+					{ ns: "system", key: "screen_off_timeout", value: 2147483647 },
+					{ ns: "secure", key: "sleep_timeout", value: 0 },
+					{ ns: "global", key: "stay_on_while_plugged_in", value: 3 }
+				];
+				
+				// Process core settings
+				for (const item of coreSettings) {
+					const cmd = mode === "set" 
+						? `settings put ${item.ns} ${item.key} ${item.value}`
+						: `settings get ${item.ns} ${item.key}`;
+					
+					const result = await device.shell(cmd).then(Adb.util.readAll);
+					
+					if (!quiet) {
+						if (mode === "set") {
+							emitLog("info", `Set ${item.ns} ${item.key} to ${item.value}`, "setSettings");
+						} else {
+							emitLog("info", `${item.ns} ${item.key}: ${result.toString().trim()}`, "setSettings");
+						}
 					}
-				});
+				}
+				
+				// Additional settings (only applied in set mode)
+				if (mode === 'set') {
+					emitLog("info", "Setting additional display and power settings", "setSettings");
+					
+					const additionalSettings = [
+						"settings put system screen_brightness_mode 0",  // Manual brightness
+						"settings put system screen_brightness 255",     // Max brightness
+						"svc power stayon true"                          // Stay on while plugged
+					];
+					
+					for (const cmd of additionalSettings) {
+						if (!quiet) emitLog("info", `Running: ${cmd}`, "setSettings");
+						await device.shell(cmd);
+					}
+				}
+				
+				emitLog("info", `✅ Android TV settings ${mode === 'set' ? 'configured' : 'retrieved'} successfully`, "setSettings");
+				
+			} catch (error) {
+				localEmitError(error, "setSettings", `Failed to ${mode === 'set' ? 'configure' : 'retrieve'} Android TV settings`);
+				throw error;
+			}
+		},
+
+		/**
+		 * Ensures the Android TV device is awake and responsive.
+		 * Performs comprehensive power state checking and correction.
+		 * @public
+		 * @returns {Promise<boolean>} Returns true if device is awake and ready
+		 * @fires Remote#log - Emitted with power state and wake-up process information
+		 * @fires Remote#error - Emitted if wake-up process fails
+		 * @example
+		 * await remote.ensureAwake();
+		 */
+		async ensureAwake() {
+			try {
+				emitLog("info", "=== Starting ensureAwake sequence ===", "ensureAwake");
+
+				await ensureConnected();
+
+				// Helper function to parse power state from dumpsys output
+				const parsePowerState = (output) => {
+					const mIsPoweredMatch = output.match(/^\s*mIsPowered=([a-zA-Z0-9]+)/m);
+					const mWakefulnessMatch = output.match(/^\s*mWakefulness=([a-zA-Z0-9]+)/m);
+					const mDisplayReadyMatch = output.match(/^\s*mDisplayReady=([a-zA-Z0-9]+)/m);
+					return {
+						mIsPowered: mIsPoweredMatch ? mIsPoweredMatch[1] : "unknown",
+						mWakefulness: mWakefulnessMatch ? mWakefulnessMatch[1] : "unknown",
+						mDisplayReady: mDisplayReadyMatch ? mDisplayReadyMatch[1] : "unknown"
+					};
+				};
+
+				// Helper function to get current power state
+				const getCurrentPowerState = async () => {
+					const output = await device
+						.shell("dumpsys power")
+						.then(Adb.util.readAll)
+						.then((b) => b.toString());
+					return parsePowerState(output);
+				};
+
+				// Helper function to emit power state
+				const emitPowerState = (parsed, context = "") => {
+					const prefix = context ? `${context} ` : "";
+					emitLog("info", `${prefix}Power State:`, "ensureAwake");
+					emitLog("info", `  mIsPowered: ${parsed.mIsPowered}`, "ensureAwake");
+					emitLog("info", `  mWakefulness: ${parsed.mWakefulness}`, "ensureAwake");
+					emitLog("info", `  mDisplayReady: ${parsed.mDisplayReady}`, "ensureAwake");
+				};
+
+				// Check initial power state
+				const initialPowerState = await getCurrentPowerState();
+				emitPowerState(initialPowerState, "Initial");
+
+				// Determine what commands need to be sent
+				const commandsToSend = [];
+				
+				if (initialPowerState.mIsPowered !== "true") {
+					emitLog("info", `Device not powered (${initialPowerState.mIsPowered}), will send POWER keycode`, "ensureAwake");
+					commandsToSend.push({ keycode: keycodes.power, reason: "power on device" });
+				} else {
+					emitLog("info", "✅ Device already powered", "ensureAwake");
+				}
+
+				if (initialPowerState.mWakefulness !== "Awake") {
+					emitLog("info", `Device not awake (${initialPowerState.mWakefulness}), will send WAKEUP keycode`, "ensureAwake");
+					commandsToSend.push({ keycode: keycodes.wakeUp, reason: "wake up device" });
+				} else {
+					emitLog("info", "✅ Device already awake", "ensureAwake");
+				}
+
+				if (initialPowerState.mDisplayReady !== "true") {
+					emitLog("info", `Display not ready (${initialPowerState.mDisplayReady}), will send POWER keycode`, "ensureAwake");
+					commandsToSend.push({ keycode: keycodes.power, reason: "ensure display ready" });
+				} else {
+					emitLog("info", "✅ Display already ready", "ensureAwake");
+				}
+
+				// Send required commands
+				if (commandsToSend.length > 0) {
+					emitLog("info", `Sending ${commandsToSend.length} keycode(s)...`, "ensureAwake");
+					
+					for (const cmd of commandsToSend) {
+						emitLog("info", `Sending keycode ${cmd.keycode} to ${cmd.reason}`, "ensureAwake");
+						await inputKeycode(cmd.keycode);
+						
+						// Brief delay between commands
+						await new Promise(resolve => setTimeout(resolve, 500));
+					}
+
+					// Wait for commands to take effect
+					emitLog("info", "Waiting for commands to take effect...", "ensureAwake");
+					await new Promise(resolve => setTimeout(resolve, 3000));
+				}
+
+				// Verify final state
+				const finalPowerState = await getCurrentPowerState();
+				emitPowerState(finalPowerState, "Final");
+
+				// Check for persistent issues
+				const issues = [];
+				if (finalPowerState.mIsPowered !== "true") {
+					issues.push(`Device still not powered: ${finalPowerState.mIsPowered}`);
+				}
+				if (finalPowerState.mWakefulness !== "Awake") {
+					issues.push(`Device still not awake: ${finalPowerState.mWakefulness}`);
+				}
+				if (finalPowerState.mDisplayReady !== "true") {
+					issues.push(`Display still not ready: ${finalPowerState.mDisplayReady}`);
+				}
+
+				if (issues.length === 0) {
+					emitLog("info", "🎉 ensureAwake completed successfully - device is fully ready", "ensureAwake");
+					return true;
+				} else {
+					// Log warnings for persistent issues
+					for (const issue of issues) {
+						emitLog("warn", issue, "ensureAwake");
+					}
+					
+					// Only throw error if critical issues persist
+					emitError(
+						new Error(`ensureAwake failed with ${issues.length} persistent issue(s): ${issues.join(', ')}`), 
+						"ensureAwake", 
+						"Device may not be fully responsive"
+					);
+					return false;
+				}
+				
+			} catch (error) {
+				emitError(error, "ensureAwake", "Failed to ensure device is awake");
+				throw error;
+			}
 		},
 
 		/**
@@ -816,6 +1045,504 @@ export default function createRemote(config) {
 		inputKeycode: /**
 		 * @type {(code: number, cb?: (err?: Error, result?: any) => any) => Promise<any> | undefined}
 		 */ (inputKeycodeWrapped),
+
+		/**
+		 * Reboots the Android TV device using ADB's native reboot method.
+		 * @public
+		 * @returns {Promise<boolean>} Returns true when reboot command was sent successfully
+		 * @fires Remote#log - Emitted with reboot operation status and warnings
+		 * @fires Remote#error - Emitted if reboot operation fails
+		 * @example
+		 * await remote.reboot(); // Reboots the device
+		 */
+		async reboot() {
+			try {
+				emitLog("info", "=== Starting device reboot ===", "reboot");
+				
+				// Ensure we're connected before sending reboot command
+				await ensureConnected();
+				
+				emitLog("info", "Sending reboot command to device", "reboot");
+				
+				// Use the native device.reboot() method with timeout handling
+				let result;
+				try {
+					result = await device.reboot();
+					emitLog("info", `✅ Reboot command completed normally`, "reboot");
+				} catch (timeoutError) {
+					// Socket timeout is expected during reboot - device becomes unresponsive
+					if (timeoutError.message && timeoutError.message.includes("timeout")) {
+						emitLog("info", "✅ Reboot command sent (connection timeout is expected during reboot)", "reboot");
+						result = true; // Treat timeout as success
+					} else {
+						// Re-throw non-timeout errors
+						throw timeoutError;
+					}
+				}
+				emitLog("warn", "Device will reboot shortly and connection will be lost", "reboot");
+				
+				// Wait a moment for command to take effect, then disconnect
+				setTimeout(() => {
+					emitLog("info", "Device should be rebooting now - connection will be terminated", "reboot");
+					// Force disconnect after reboot
+					connected = false;
+					stopHeartbeat();
+				}, 1000);
+
+				emitLog("info", "=== Device reboot initiated ===", "reboot");
+				return result;
+
+			} catch (error) {
+				emitError(error, "reboot", "Failed to reboot device");
+				
+				// Provide helpful error messages for common issues
+				if (error.message && error.message.includes("unauthorized")) {
+					emitLog("error", "Device unauthorized - ensure ADB debugging is enabled and device is authorized", "reboot");
+				} else if (error.message && error.message.includes("device not found")) {
+					emitLog("error", "Device not found - check IP address and ADB connection", "reboot");
+				} else if (error.message && error.message.includes("permission")) {
+					emitLog("error", "Permission denied - reboot may require root access on some devices", "reboot");
+				} else if (error.message && error.message.includes("timeout")) {
+					emitLog("warn", "Reboot command timed out - this may be normal behavior during reboot", "reboot");
+				}
+				
+				throw error;
+			}
+		},
+
+		/**
+		 * Takes a screenshot of the Android TV device screen in PNG format with optional resizing and file saving.
+		 * @public
+		 * @param {Object} [options={}] - Screenshot options
+		 * @param {number} [options.width] - Target width for resizing (optional)
+		 * @param {number} [options.height] - Target height for resizing (optional) 
+		 * @param {string} [options.filepath] - File path to save screenshot (optional)
+		 * @returns {Promise<ReadableStream|void>} Returns PNG stream if no filepath, void if saved to file
+		 * @fires Remote#screencap-start - Emitted when screenshot capture begins
+		 * @fires Remote#screencap-captured - Emitted when raw screenshot is captured
+		 * @fires Remote#screencap-processing - Emitted when image processing begins
+		 * @fires Remote#screencap-ready - Emitted when final processed stream is ready
+		 * @fires Remote#screencap-saved - Emitted when screenshot is saved to file
+		 * @fires Remote#screencap-complete - Emitted when entire operation is complete
+		 * @fires Remote#log - Emitted with screenshot operation status
+		 * @fires Remote#error - Emitted if screenshot operation fails
+		 * @example
+		 * // Basic screenshot - returns stream
+		 * const pngStream = await remote.screencap();
+		 * 
+		 * // Screenshot with resizing
+		 * const resizedStream = await remote.screencap({ width: 1280, height: 720 });
+		 * 
+		 * // Screenshot saved to file
+		 * await remote.screencap({ filepath: './screenshot.png' });
+		 * 
+		 * // Screenshot with resizing and file save
+		 * await remote.screencap({ width: 640, height: 360, filepath: './thumb.png' });
+		 * 
+		 * // Event-driven usage (non-blocking)
+		 * remote.screencap({ width: 1280, filepath: './shot.png' });
+		 * remote.on('screencap-complete', (data) => {
+		 *   console.log('Screenshot ready:', data.filepath);
+		 * });
+		 */
+		async screencap(options = {}) {
+			const startTime = performance.now();
+			const { width, height, filepath } = options;
+			
+			try {
+				emitLog("info", "=== Taking device screenshot ===", "screencap");
+				
+				// Emit start event
+				emitter.emit("screencap-start", {
+					timestamp: new Date().toISOString(),
+					options: { width, height, filepath }
+				});
+				
+				// Ensure we're connected before taking screenshot
+				await ensureConnected();
+				
+				emitLog("info", "Capturing screenshot using native screencap utility", "screencap");
+				
+				// Use the native device.screencap() method which should return PNG
+				const screencapStream = await device.screencap();
+				const captureTime = performance.now();
+				
+				emitLog("info", `✅ Screenshot captured successfully (${(captureTime - startTime).toFixed(2)}ms)`, "screencap");
+				
+				// Emit captured event
+				emitter.emit("screencap-captured", {
+					timestamp: new Date().toISOString(),
+					captureTime: captureTime - startTime
+				});
+
+				// Determine if we need Sharp processing (only for resizing)
+				const needsSharpProcessing = width || height;
+				
+				// Handle file save without processing (direct PNG stream to file)
+				if (filepath && !needsSharpProcessing) {
+					const backgroundOperation = (async () => {
+						try {
+							const fileOpStartTime = performance.now();
+							
+							emitLog("info", `💾 [BACKGROUND] Starting direct save to: ${filepath}`, "screencap");
+							
+							// Direct pipe: ADB PNG stream -> File (no Sharp processing)
+							const directPipeStartTime = performance.now();
+							const writeStream = createWriteStream(filepath);
+							
+							// Store the raw PNG stream for user access
+							lastScreencapData = screencapStream;
+							
+							emitLog("info", `🔄 [BACKGROUND] Piping stream to file...`, "screencap");
+							screencapStream.pipe(writeStream);
+							
+							emitLog("info", `⏳ [BACKGROUND] Waiting for write stream to finish...`, "screencap");
+							await new Promise((resolve, reject) => {
+								writeStream.on('finish', () => {
+									emitLog("info", `✅ [BACKGROUND] Write stream finished for ${filepath}`, "screencap");
+									resolve();
+								});
+								writeStream.on('error', (err) => {
+									emitLog("error", `❌ [BACKGROUND] Write stream error for ${filepath}: ${err.message}`, "screencap");
+									reject(err);
+								});
+							});
+							
+							const directPipeTime = performance.now() - directPipeStartTime;
+							const totalFileOpTime = performance.now() - fileOpStartTime;
+							const totalTime = performance.now() - startTime;
+							
+							emitLog("info", `✅ Screenshot saved directly to ${filepath}`, "screencap");
+							emitLog("info", `⚡ Direct pipe timing: ${directPipeTime.toFixed(2)}ms (no Sharp processing!)`, "screencap");
+							
+							// Emit saved event with timing
+							emitter.emit("screencap-saved", {
+								timestamp: new Date().toISOString(),
+								filepath,
+								timing: {
+									adbStream: captureTime - startTime,
+									directPipe: directPipeTime,
+									fileOperation: totalFileOpTime,
+									total: totalTime
+								}
+							});
+							
+							// Emit complete event
+							emitter.emit("screencap-complete", {
+								timestamp: new Date().toISOString(),
+								filepath,
+								processed: false,
+								timing: {
+									adbStream: captureTime - startTime,
+									directPipe: directPipeTime,
+									fileOperation: totalFileOpTime,
+									total: totalTime
+								}
+							});
+							
+						} catch (saveError) {
+							emitLog("error", `💥 [BACKGROUND] Direct pipe error: ${saveError.message}`, "screencap");
+							localEmitError(saveError, "screencap", `Failed to save screenshot directly to ${filepath}: ${saveError.message}`);
+						} finally {
+							emitLog("info", `🧹 [BACKGROUND] Cleaning up background operation for ${filepath}`, "screencap");
+							backgroundOperations.delete(backgroundOperation);
+						}
+					})();
+					
+					backgroundOperations.add(backgroundOperation);
+					emitLog("info", "Direct PNG pipe started in background", "screencap");
+					return; // Don't return a stream when saving to file
+				}
+				
+				if (!needsSharpProcessing && !filepath) {
+					// Store the raw PNG stream for user access
+					lastScreencapData = screencapStream;
+					
+					// Return raw stream if no processing or file save needed
+					emitLog("info", "Raw PNG stream ready (no processing needed)", "screencap");
+					emitter.emit("screencap-ready", {
+						timestamp: new Date().toISOString(),
+						processed: false,
+						totalTime: captureTime - startTime
+					});
+					emitter.emit("screencap-complete", {
+						timestamp: new Date().toISOString(),
+						totalTime: captureTime - startTime,
+						processed: false
+					});
+					return screencapStream;
+				}
+				
+				// Process the image
+				emitLog("info", "Processing screenshot image...", "screencap");
+				emitter.emit("screencap-processing", {
+					timestamp: new Date().toISOString(),
+					width,
+					height,
+					filepath
+				});
+				
+				const processStartTime = performance.now();
+				
+				// Create Sharp transform pipeline
+				let sharpTransform = sharp();
+				
+				// Apply resizing if width or height specified
+				if (width || height) {
+					const resizeOptions = {
+						fit: 'inside', // Maintain aspect ratio
+						withoutEnlargement: true // Don't upscale
+					};
+					if (width) resizeOptions.width = width;
+					if (height) resizeOptions.height = height;
+					
+					sharpTransform = sharpTransform.resize(resizeOptions);
+					emitLog("info", `Resizing to ${width || 'auto'}x${height || 'auto'}`, "screencap");
+				}
+				
+				// Ensure PNG format with fastest compression settings
+				sharpTransform = sharpTransform.png({ 
+					compressionLevel: 1, // Fastest compression (0-9, lower = faster)
+					progressive: false   // Disable progressive encoding
+				});
+				
+				if (filepath) {
+					// Background process handles saving and updates lastScreencapData when done
+					const backgroundOperation = (async () => {
+						try {
+							const fileOpStartTime = performance.now();
+							const writeStreamStartTime = performance.now();
+							const writeStream = createWriteStream(filepath);
+							const writeStreamTime = performance.now() - writeStreamStartTime;
+							
+							// Process and save data, collecting it for lastScreencapData
+							const chunks = [];
+							const processedStream = screencapStream.pipe(sharpTransform);
+							
+							await new Promise((resolve, reject) => {
+								processedStream.on('data', (chunk) => {
+									chunks.push(chunk);
+									writeStream.write(chunk);
+								});
+								
+								processedStream.on('end', () => {
+									writeStream.end();
+									// Save processed data to lastScreencapData when done
+									lastScreencapData = Buffer.concat(chunks);
+									
+									const totalFileOpTime = performance.now() - fileOpStartTime;
+									const totalTime = performance.now() - startTime;
+									
+									emitLog("info", `✅ Screenshot saved to ${filepath}`, "screencap");
+									emitLog("info", `⏱️ File save timing: ${totalFileOpTime.toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`, "screencap");
+									
+									emitter.emit("screencap-saved", {
+										timestamp: new Date().toISOString(),
+										filepath,
+										timing: { fileOperation: totalFileOpTime, total: totalTime }
+									});
+									
+									emitter.emit("screencap-complete", {
+										timestamp: new Date().toISOString(),
+										filepath,
+										processed: true,
+										width,
+										height,
+										timing: { fileOperation: totalFileOpTime, total: totalTime }
+									});
+									
+									resolve();
+								});
+								
+								processedStream.on('error', (error) => {
+									reject(error);
+								});
+							});
+							
+						} catch (saveError) {
+							// Show full error details for debugging
+							emitLog("error", `💥 [BACKGROUND SHARP] File save error: ${saveError.message}`, "screencap");
+							emitLog("error", `💥 [BACKGROUND SHARP] Error stack: ${saveError.stack}`, "screencap");
+							
+							// Only suppress specific libspng/PNG processing errors that occur after disconnection
+							if (!connected && saveError.message && (
+								saveError.message.includes('libspng') || 
+								saveError.message.includes('pngload_buffer') ||
+								saveError.message.includes('read error')
+							)) {
+								emitLog("debug", `PNG processing error after disconnection (suppressed): ${filepath}`, "screencap");
+							} else {
+								// Emit all other errors with full details
+								localEmitError(saveError, "screencap", `Failed to save screenshot to ${filepath}: ${saveError.message}`);
+							}
+						} finally {
+							// Remove from background operations when complete
+							emitLog("info", `🧹 [BACKGROUND SHARP] Cleaning up background operation for ${filepath}`, "screencap");
+							backgroundOperations.delete(backgroundOperation);
+						}
+					})();
+					
+					// Track the background operation
+					backgroundOperations.add(backgroundOperation);					
+					emitLog("info", "Screenshot processing started in background", "screencap");
+					return; // Don't return a stream when saving to file
+					
+				} else {
+					// Return processed stream
+					const processedStream = screencapStream.pipe(sharpTransform);
+					const processEndTime = performance.now();
+					
+					const streamCaptureTime = captureTime - startTime;
+					const sharpProcessTime = processEndTime - processStartTime;
+					const totalTime = processEndTime - startTime;
+					
+					// Debug timing variables
+					emitLog("debug", `🔍 Timing variables: captureTime=${captureTime}, startTime=${startTime}, processEndTime=${processEndTime}, processStartTime=${processStartTime}`, "screencap");
+					
+					emitLog("info", `PNG stream processed and ready`, "screencap");
+					try {
+						emitLog("info", `⏱️  Timing breakdown: Capture=${streamCaptureTime.toFixed(2)}ms, Sharp=${sharpProcessTime.toFixed(2)}ms, Total=${totalTime.toFixed(2)}ms`, "screencap");
+					} catch (timingError) {
+						emitLog("error", `⚠️  Timing log error in stream processing: ${timingError.message}. Variables: streamCaptureTime=${streamCaptureTime}, sharpProcessTime=${sharpProcessTime}, totalTime=${totalTime}`, "screencap");
+					}
+					
+					// Emit ready event
+					emitter.emit("screencap-ready", {
+						timestamp: new Date().toISOString(),
+						processed: true,
+						width,
+						height,
+						timing: {
+							capture: streamCaptureTime,
+							sharpProcess: sharpProcessTime,
+							total: totalTime
+						}
+					});
+					
+					// Emit complete event
+					emitter.emit("screencap-complete", {
+						timestamp: new Date().toISOString(),
+						processed: true,
+						width,
+						height,
+						timing: {
+							capture: streamCaptureTime,
+							sharpProcess: sharpProcessTime,
+							total: totalTime
+						}
+					});
+					
+					// Store the processed stream for user access
+					lastScreencapData = processedStream;
+					
+					return processedStream;
+				}
+
+			} catch (error) {
+				localEmitError(error, "screencap", "Failed to capture screenshot");
+				
+				// Provide helpful error messages for common issues
+				if (error.message && error.message.includes("unauthorized")) {
+					emitLog("error", "Device unauthorized - ensure ADB debugging is enabled and device is authorized", "screencap");
+				} else if (error.message && error.message.includes("device not found")) {
+					emitLog("error", "Device not found - check IP address and ADB connection", "screencap");
+				} else if (error.message && error.message.includes("screencap")) {
+					emitLog("warn", "Screencap utility may not be available - automatic fallback to framebuffer attempted", "screencap");
+				} else if (error.message && error.message.includes("ENOENT")) {
+					emitLog("error", `File path error: ${error.message}`, "screencap");
+				}
+				
+				throw error;
+			}
+		},
+
+		/**
+		 * Takes a thumbnail screenshot with default width of 240px.
+		 * @public
+		 * @param {Object} [options={}] - Thumbnail options
+		 * @param {number} [options.width=240] - Target width for thumbnail (default: 240)
+		 * @param {number} [options.height] - Target height for thumbnail (optional)
+		 * @param {string} [options.filepath] - File path to save thumbnail (optional)
+		 * @returns {Promise<ReadableStream|void>} Returns PNG stream if no filepath, void if saved to file
+		 * @fires Remote#screencap-start - Emitted when thumbnail capture begins
+		 * @fires Remote#screencap-captured - Emitted when raw screenshot is captured
+		 * @fires Remote#screencap-processing - Emitted when image processing begins
+		 * @fires Remote#screencap-ready - Emitted when final processed stream is ready
+		 * @fires Remote#screencap-saved - Emitted when thumbnail is saved to file
+		 * @fires Remote#screencap-complete - Emitted when entire thumbnail operation is complete
+		 * @fires Remote#log - Emitted with thumbnail operation status
+		 * @fires Remote#error - Emitted if thumbnail operation fails
+		 * @example
+		 * // Basic thumbnail with default 240px width
+		 * const thumbnailStream = await remote.thumbnail();
+		 * 
+		 * // Thumbnail with custom dimensions
+		 * const customThumb = await remote.thumbnail({ width: 320, height: 180 });
+		 * 
+		 * // Thumbnail saved to file
+		 * await remote.thumbnail({ filepath: './thumb.png' });
+		 * 
+		 * // Thumbnail with custom size and file save
+		 * await remote.thumbnail({ width: 160, height: 90, filepath: './small-thumb.png' });
+		 */
+		async thumbnail(options = {}) {
+			// Set default width to 240 if not specified
+			const thumbnailOptions = {
+				width: 240,
+				...options
+			};
+			
+			emitLog("info", `📸 Taking thumbnail screenshot (${thumbnailOptions.width}x${thumbnailOptions.height || 'auto'})`, "thumbnail");
+			
+			// Call screencap with thumbnail options
+			return await this.screencap(thumbnailOptions);
+		},
+
+		/**
+		 * Waits until the Android TV device has finished booting.
+		 * @public
+		 * @param {number} [timeout=60000] - Maximum time to wait in milliseconds (default: 60 seconds)
+		 * @returns {Promise<boolean>} Returns true when device has completed booting
+		 * @fires Remote#log - Emitted with boot monitoring status
+		 * @fires Remote#error - Emitted if boot monitoring fails
+		 * @example
+		 * await remote.waitBootComplete(); // Wait with default 60 second timeout
+		 * await remote.waitBootComplete(120000); // Wait up to 2 minutes
+		 */
+		async waitBootComplete(timeout = 60000) {
+			try {
+				emitLog("info", "=== Waiting for device boot completion ===", "waitBootComplete");
+				
+				// Ensure we're connected before monitoring boot status
+				await ensureConnected();
+				
+				emitLog("info", `Monitoring boot status (timeout: ${timeout}ms)`, "waitBootComplete");
+				
+				// Use the native device.waitBootComplete() method
+				const result = await device.waitBootComplete();
+				
+				emitLog("info", "✅ Device boot completed successfully", "waitBootComplete");
+				emitLog("info", "Device is now ready for operations", "waitBootComplete");
+
+				return result;
+
+			} catch (error) {
+				emitError(error, "waitBootComplete", "Failed while waiting for boot completion");
+				
+				// Provide helpful error messages for common issues
+				if (error.message && error.message.includes("unauthorized")) {
+					emitLog("error", "Device unauthorized - ensure ADB debugging is enabled and device is authorized", "waitBootComplete");
+				} else if (error.message && error.message.includes("device not found")) {
+					emitLog("error", "Device not found - check IP address and ADB connection", "waitBootComplete");
+				} else if (error.message && error.message.includes("timeout")) {
+					emitLog("error", `Boot completion timeout after ${timeout}ms - device may still be starting`, "waitBootComplete");
+				} else if (error.message && error.message.includes("connection")) {
+					emitLog("error", "Connection lost while waiting for boot completion", "waitBootComplete");
+				}
+				
+				throw error;
+			}
+		},
 
 		/**
 		 * All remote key functions support both promise and callback styles.
@@ -952,37 +1679,45 @@ export default function createRemote(config) {
 			key: Object.assign(
 				wrapAsync(function (keyName, options) {
 					options = options || {};
-					if (!keycodes[keyName]) {
-						const error = new Error("Unknown key: " + keyName);
-						emitError(error, "keyboard.key", `Unknown key: ${keyName}`);
+					if (!keyboardKeys[keyName]) {
+						const error = new Error("Unknown keyboard key: " + keyName);
+						emitError(error, "keyboard.key", `Unknown keyboard key: ${keyName}`);
 						return Promise.reject(error);
 					}
 					if (!options.forceKeycode) {
-						// Try inputText for single character keys
-						if (keyName.length === 1) {
-							return inputText(keyName);
-						}
+						// Send as text character
+						return inputText(keyboardKeys[keyName]);
 					}
-					// Fallback to keycode
-					return inputKeycode(keycodes[keyName]);
+					// Fallback to keycode if exists
+					if (keycodes[keyName]) {
+						return inputKeycode(keycodes[keyName]);
+					}
+					const error = new Error("No keycode available for key: " + keyName);
+					emitError(error, "keyboard.key", `No keycode available for key: ${keyName}`);
+					return Promise.reject(error);
 				}),
 				{
-					// Dynamically add all key functions and .keycode subobject
+					// Dynamically add all keyboard key functions and .keycode subobject
 					...(() => {
 						const keyFns = {};
-						Object.keys(keycodes).forEach((keyName) => {
+						Object.keys(keyboardKeys).forEach((keyName) => {
 							/**
-							 * Sends this key using inputText (if possible) or keycode fallback.
+							 * Sends this key using inputText or keycode fallback.
 							 * @returns {Promise<any>}
 							 * @example
 							 * keyboard.key.a();
 							 */
 							keyFns[keyName] = wrapAsync(function (options) {
 								options = options || {};
-								if (!options.forceKeycode && keyName.length === 1) {
-									return inputText(keyName);
+								if (!options.forceKeycode) {
+									return inputText(keyboardKeys[keyName]);
 								}
-								return inputKeycode(keycodes[keyName]);
+								if (keycodes[keyName]) {
+									return inputKeycode(keycodes[keyName]);
+								}
+								const error = new Error("No keycode available for key: " + keyName);
+								emitError(error, "keyboard.key", `No keycode available for key: ${keyName}`);
+								return Promise.reject(error);
 							});
 							/**
 							 * Sends this key using keycode only.
@@ -990,9 +1725,11 @@ export default function createRemote(config) {
 							 * @example
 							 * keyboard.key.a.keycode();
 							 */
-							keyFns[keyName].keycode = wrapAsync(function () {
-								return inputKeycode(keycodes[keyName]);
-							});
+							if (keycodes[keyName]) {
+								keyFns[keyName].keycode = wrapAsync(function () {
+									return inputKeycode(keycodes[keyName]);
+								});
+							}
 						});
 						return keyFns;
 					})(),
@@ -1002,34 +1739,25 @@ export default function createRemote(config) {
 					 */
 					shift: (() => {
 						const shiftFns = {};
-						Object.keys(keycodes).forEach((keyName) => {
-							/**
-							 * Sends this key with shift using inputText (if possible) or keycode fallback.
-							 * @returns {Promise<any>}
-							 * @example
-							 * keyboard.key.shift.a();
-							 */
-							shiftFns[keyName] = wrapAsync(function (options) {
-								options = options || {};
-								if (!options.forceKeycode && keyName.length === 1) {
-									return inputText(keyName.toUpperCase());
-								}
-								return inputKeycodeWrapped(keycodes.shiftLeft).then(() => {
-									return inputKeycodeLongPressWrapped(keycodes[keyName]);
+						Object.keys(keyboardKeys).forEach((keyName) => {
+							const char = keyboardKeys[keyName];
+							const shiftedChar = getShiftedCharacter(keyName, char);
+							
+							// Only create shift function if the character actually changes when shifted
+							if (shiftedChar !== char) {
+								/**
+								 * Sends this key with shift using inputText (shifted character).
+								 * Note: No keycode method available for shift variants since Android
+								 * ADB doesn't support sending multiple keycodes simultaneously.
+								 * @returns {Promise<any>}
+								 * @example
+								 * keyboard.key.shift.a(); // Sends "A"
+								 */
+								shiftFns[keyName] = wrapAsync(function () {
+									// Send shifted character as text
+									return inputText(shiftedChar);
 								});
-							});
-
-							/**
-							 * Sends this key with shift using keycode only.
-							 * @returns {Promise<any>}
-							 * @example
-							 * keyboard.key.shift.a.keycode();
-							 */
-							shiftFns[keyName].keycode = wrapAsync(function () {
-								return inputKeycodeWrapped(keycodes.shiftLeft).then(() => {
-									return inputKeycodeLongPressWrapped(keycodes[keyName]);
-								});
-							});
+							}
 						});
 						return shiftFns;
 					})()
@@ -1037,6 +1765,18 @@ export default function createRemote(config) {
 			)
 		}
 	};
+
+	// Handle initialization if autoConnect is enabled
+	if (autoConnect) {
+		try {
+			// Wait for initialization to complete
+			await realInitPromise;
+		} catch (error) {
+			// If initialization fails, still return the remote but emit error
+			emitError(error, "createRemote", "Auto-connect failed during initialization");
+		}
+	}
+
 	return remoteApi;
 }
 
@@ -1047,7 +1787,7 @@ export default function createRemote(config) {
  * @returns {Promise<Remote>} Resolves with a ready remote instance.
  * 
  * @description
- * Creates a remote instance and waits for initialization to complete if autoConnect is enabled.
+ * Alias for createRemote() - both functions now return ready-to-use remote instances.
  * 
  * @example
  * // ESM with event handling
@@ -1056,14 +1796,8 @@ export default function createRemote(config) {
  * remote.on('error', (data) => console.error(data));
  */
 export async function createAndroidTVRemote(config) {
-	const remote = createRemote(config);
-	
-	// Only wait for initialization if autoConnect is enabled
-	if (config.autoConnect !== false) {
-		await remote.initPromise;
-	}
-	
-	return remote;
+	// Now createRemote is async and handles initialization internally
+	return await createRemote(config);
 }
 
 // Add static create method to the default export

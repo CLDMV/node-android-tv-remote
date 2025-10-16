@@ -62,7 +62,7 @@ async function tryInitADB(remote, maxAttempts = 10) {
 	// console.log("Test passed: Retries and fails as expected for unreachable device.");
 
 	(async () => {
-		const remote = createRemote({ ip: "10.42.0.210", port: 5555, autoConnect: true, quiet: false });
+		const remote = await createRemote({ ip: "10.42.0.210", port: 5555, autoConnect: true, quiet: false });
 		try {
 			await remote.initPromise;
 			console.log("initPromise resolved");

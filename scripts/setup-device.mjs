@@ -1,5 +1,15 @@
-#!/usr/bin/env node
-
+/**
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /scripts/setup-device.mjs
+ *	@Date: 2025-10-15 10:19:05 -07:00 (1760548745)
+ *	@Author: Nate Hyson <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2025-10-16 06:45:06 -07:00 (1760622306)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ */
 import readline from "readline";
 import AndroidTVSetup from "../src/lib/adb/setup.mjs";
 

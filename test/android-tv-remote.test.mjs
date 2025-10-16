@@ -78,10 +78,10 @@ describe("android-tv-remote", () => {
 	});
 
 	test("should handle settings get", async () => {
-		await remote.handleSettings("get", true);
+		await remote.setSettings("get");
 	});
 
 	test("should handle settings set", async () => {
-		await remote.handleSettings("set", true);
+		await remote.setSettings("set");
 	});
 });

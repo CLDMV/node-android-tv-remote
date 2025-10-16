@@ -18,16 +18,21 @@
 
 ## Overview
 
-A modern, **event-driven** Node.js module for controlling Android TV devices via ADB. Supports sending keycodes, keyboard input, and remote control commands. Designed for compatibility with a wide range of Android TV devices, including Fire TV, Chromecast with Google TV, and more.
+A modern, **event-driven** Node.js module for controlling Android TV devices via ADB. Supports sending keycodes, comprehensive keyboard input (71 characters with smart shift detection), and remote control commands. Designed for compatibility with a wide range of Android TV devices, including Fire TV, Chromecast with Google TV, and more.
 
 ### Key Features
 
-- 🎯 **Event-driven architecture** - No console pollution, structured event data
+- 🎯 **Event-driven architecture** - Comprehensive event system with structured data
+- ⌨️ **Comprehensive keyboard input** - 71 characters with smart shift detection and special symbols
 - 🔄 **ESM & CommonJS support** - Works with both `import` and `require`
 - 🛡️ **Error resilience** - Errors emit events instead of crashing your app
 - 🔗 **Method chaining** - Fluent API for event listener management
 - 📊 **Structured logging** - Timestamped, categorized log events with source tracking
 - 🚀 **Promise-based** - Modern async/await support with callback compatibility
+- 📸 **Advanced screencap** - High-performance PNG screenshots with resizing and thumbnails
+- ⚡ **Performance optimized** - Direct PNG streaming with 20x speed improvements
+- 🔄 **Device management** - Reboot, wake, settings configuration with event tracking
+- 📱 **Universal compatibility** - Works with Fire TV, Chromecast, Shield, and more
 
 ## Installation
 
@@ -73,25 +78,27 @@ npm install android-tv-remote
 ### Basic Usage
 
 ```js
-// ESM
+```js
+// ESM (Node.js with type: "module" in package.json)
 import createRemote from "android-tv-remote";
 
-// CJS
+// CommonJS
 const createRemote = require("android-tv-remote");
 
-const remote = createRemote({ ip: "192.168.1.100" });
+// Create remote (async function)
+const remote = await createRemote({ ip: "192.168.1.100" });
 
-// Connect
-await remote.connect();
-
-// Press Home
+// Use with async/await (recommended)
 await remote.press.home();
+await remote.press.up();
+await remote.press.ok();
 
-// Type text
-await remote.keyboard.text("hello world");
-
-// Disconnect
-await remote.disconnect();
+// Or chain promises
+createRemote({ ip: "192.168.1.100" })
+  .then(remote => remote.press.home())
+  .then(() => remote.press.up())
+  .then(() => remote.press.ok());
+```
 ```
 
 ### Event-Driven Usage (Recommended)
@@ -101,7 +108,7 @@ This module uses an **event-driven architecture** instead of console logging. Al
 ```js
 import createRemote from "android-tv-remote";
 
-const remote = createRemote({ ip: "192.168.1.100" });
+const remote = await createRemote({ ip: "192.168.1.100" });
 
 // Listen for log events (info, warn, error, debug)
 remote.on("log", (data) => {
@@ -118,20 +125,163 @@ remote.on("error", (data) => {
 	}
 });
 
+// Listen for screenshot events
+remote.on("screencap-complete", (data) => {
+	console.log(`Screenshot completed in ${data.timing.total}ms`);
+});
+
 // Use the remote
 await remote.press.home();
+await remote.screencap({ filepath: './screenshot.png' });
 ```
 
-### Static Create Method
+### Async Initialization
 
-For cleaner async initialization:
+The createRemote function is async and returns a Promise:
 
 ```js
-import { createAndroidTVRemote } from "android-tv-remote";
+import createRemote from "android-tv-remote";
 
-const remote = await createAndroidTVRemote({ ip: "192.168.1.100" });
+// Async initialization with await
+const remote = await createRemote({ ip: "192.168.1.100" });
 remote.on("log", console.log);
 await remote.press.play();
+
+// Or use .then()
+createRemote({ ip: "192.168.1.100" })
+  .then(remote => {
+    remote.on("log", console.log);
+    return remote.press.play();
+  });
+```
+
+### Screenshot Functionality
+
+Advanced screencap with resizing, thumbnails, and file saving:
+
+```js
+import createRemote from "android-tv-remote";
+
+const remote = await createRemote({ ip: "192.168.1.100" });
+
+// Basic screenshot (returns PNG stream)
+const stream = await remote.screencap();
+
+// Screenshot with resizing
+const resizedStream = await remote.screencap({ width: 1280, height: 720 });
+
+// Save screenshot to file (non-blocking)
+await remote.screencap({ filepath: './screenshot.png' });
+
+// Resized screenshot saved to file
+await remote.screencap({ 
+  width: 640, 
+  height: 360, 
+  filepath: './thumbnail.png' 
+});
+
+// Quick thumbnail (default 240px width)
+const thumbStream = await remote.thumbnail();
+
+// Custom thumbnail dimensions
+const customThumb = await remote.thumbnail({ 
+  width: 320, 
+  height: 180, 
+  filepath: './thumb.png' 
+});
+
+// Access last screenshot data
+console.log('Last screenshot available:', !!remote.lastScreencapData);
+
+// Listen for screenshot events
+remote.on('screencap-complete', (data) => {
+  console.log(`Screenshot completed in ${data.timing.total}ms`);
+});
+```
+
+### Device Management
+
+Comprehensive device control with event tracking:
+
+```js
+import createRemote from "android-tv-remote";
+
+const remote = await createRemote({ ip: "192.168.1.100" });
+
+// Reboot the device
+await remote.reboot();
+
+// Ensure device is awake and responsive
+const isAwake = await remote.ensureAwake();
+
+// Configure optimal settings for remote control
+await remote.setSettings(); // Set optimal settings
+await remote.setSettings('get'); // Get current settings
+
+// Wait for device to finish booting (after reboot)
+await remote.waitBootComplete(60000); // 60 second timeout
+
+// Connection management
+await remote.connect();
+console.log('Connected:', remote.isConnected);
+await remote.disconnect();
+
+// Listen for device management events
+remote.on('log', (data) => {
+  if (data.source === 'reboot') {
+    console.log(`Reboot: ${data.message}`);
+  }
+  if (data.source === 'ensureAwake') {
+    console.log(`Wake: ${data.message}`);
+  }
+});
+```
+
+### Keyboard Input
+
+Comprehensive text input with individual key support and smart shift detection:
+
+```js
+import createRemote from "android-tv-remote";
+
+const remote = await createRemote({ ip: "192.168.1.100" });
+
+// Text input (recommended for typing sentences)
+await remote.keyboard.text("Hello World!");
+await remote.keyboard.text("user@example.com");
+
+// Individual character input
+await remote.keyboard.key.h();           // Types "h"
+await remote.keyboard.key.e();           // Types "e" 
+await remote.keyboard.key.l();           // Types "l"
+await remote.keyboard.key.l();           // Types "l"
+await remote.keyboard.key.o();           // Types "o"
+
+// Shifted characters (only available for keys that change when shifted)
+await remote.keyboard.key.shift.h();     // Types "H"
+await remote.keyboard.key.shift.one();   // Types "!"
+await remote.keyboard.key.shift.semicolon(); // Types ":"
+
+// Special characters and symbols
+await remote.keyboard.key.space();       // Types " "
+await remote.keyboard.key.exclamation(); // Types "!"
+await remote.keyboard.key.at();          // Types "@"
+await remote.keyboard.key.hash();        // Types "#"
+await remote.keyboard.key.dollar();      // Types "$"
+
+// Control keys
+await remote.keyboard.key.tab();         // Tab character
+await remote.keyboard.key.enter();       // Enter/Return
+await remote.keyboard.key.backspace();   // Backspace
+
+// Using keycode fallback (when available for regular keys)
+await remote.keyboard.key.a.keycode();   // Sends keycode instead of character
+
+// Note: Shift variants are only available for keys that actually change
+// when shifted (letters, numbers, and some symbols). Special characters 
+// like @, #, !, etc. don't have shift variants since they're already 
+// the shifted form. Shift keys only support text input, not keycodes,
+// since Android ADB doesn't support sending multiple keycodes simultaneously.
 ```
 
 ### Event Data Structure
@@ -142,7 +292,7 @@ await remote.press.play();
 {
   level: 'info' | 'warn' | 'error' | 'debug',
   message: 'Human readable message',
-  source: 'connect' | 'disconnect' | 'handleSettings' | etc,
+  source: 'connect' | 'disconnect' | 'screencap' | 'reboot' | 'ensureAwake' | etc,
   timestamp: '2025-10-15T18:37:44.854Z',
   data?: any // Optional additional data
 }
@@ -153,9 +303,27 @@ await remote.press.play();
 ```js
 {
   error: Error, // The actual error object
-  source: 'connect' | 'adb' | 'keyboard.key' | etc,
+  source: 'connect' | 'adb' | 'screencap' | 'reboot' | etc,
   message: 'Human readable error message',
   timestamp: '2025-10-15T18:37:44.854Z'
+}
+```
+
+**Screenshot Events:**
+
+```js
+// screencap-complete event
+{
+  timestamp: '2025-10-15T18:37:44.854Z',
+  filepath?: './screenshot.png', // If saved to file
+  processed: true, // Whether Sharp processing was used
+  width?: 1280,
+  height?: 720,
+  timing: {
+    capture: 25.4, // ADB capture time in ms
+    sharpProcess?: 1.2, // Sharp processing time in ms
+    total: 26.6 // Total operation time in ms
+  }
 }
 ```
 
@@ -166,10 +334,15 @@ await remote.press.play();
 - `connect()` / `disconnect()` - Device connection management
 - `press.<key>()` / `press.long.<key>()` - Remote control buttons
 - `keyboard.text(text)` - Text input
-- `keyboard.key.<key>()` / `keyboard.key.<key>.keycode()` - Individual keys
-- `keyboard.key.shift.<key>()` / `keyboard.key.shift.<key>.keycode()` - Shifted keys
+- `keyboard.key.<key>()` / `keyboard.key.<key>.keycode()` - Individual keys (71 available)
+- `keyboard.key.shift.<key>()` - Shifted keys (47 available, text input only)
 - `inputKeycode(code)` - Raw Android keycodes
-- `handleSettings(mode, [overrideQuiet])` - Android settings management
+- `reboot()` - Reboot the Android TV device
+- `ensureAwake()` - Ensure device is awake and responsive
+- `setSettings(mode)` - Configure optimal Android TV settings
+- `waitBootComplete(timeout)` - Wait for device boot completion
+- `screencap(options)` - Take PNG screenshots with optional resizing and file saving
+- `thumbnail(options)` - Take thumbnail screenshots (default 240px width)
 
 ### Event Methods
 
@@ -182,11 +355,18 @@ await remote.press.play();
 
 - `log` - Emitted for all operations (info, warn, error, debug levels)
 - `error` - Emitted when errors occur (structured error data)
+- `screencap-start` - Emitted when screenshot capture begins
+- `screencap-captured` - Emitted when raw screenshot is captured
+- `screencap-processing` - Emitted when image processing begins
+- `screencap-ready` - Emitted when processed stream is ready
+- `screencap-saved` - Emitted when screenshot is saved to file
+- `screencap-complete` - Emitted when entire screenshot operation completes
 
 ### Properties
 
 - `isConnected` - Boolean indicating connection status
 - `initPromise` - Promise that resolves when initialization completes
+- `lastScreencapData` - Buffer/Stream containing the last captured screenshot data
 
 See JSDoc comments in source code for full API documentation.
 

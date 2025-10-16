@@ -1,6 +1,6 @@
 {
 	"name": "@cldmv/node-android-tv-remote",
-	"version": "2.0.0",
+	"version": "2.1.0",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
 	"exports": {
@@ -42,13 +42,25 @@
 	},
 	"homepage": "https://github.com/CLDMV/node-android-tv-remote#readme",
 	"license": "MIT",
+	"files": [
+		"src/",
+		"scripts/",
+		"index.mjs",
+		"index.cjs",
+		"README.md",
+		"package.json"
+	],
 	"dependencies": {
-		"@devicefarmer/adbkit": "^3.3.8"
+		"@devicefarmer/adbkit": "^3.3.8",
+		"sharp": "^0.34.4"
 	},
 	"devDependencies": {
 		"jest": "^30.0.5"
 	},
 	"publishConfig": {
 		"access": "public"
+	},
+	"engines": {
+		"node": "^18.17.0 || ^20.3.0 || >=21.0.0"
 	}
 }

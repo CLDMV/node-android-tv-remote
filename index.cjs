@@ -23,9 +23,8 @@
 const { createRequire } = require("module");
 const requireESM = createRequire(__filename);
 
-const { default: createRemote, AndroidTVSetup } = requireESM("./index.mjs");
+const { default: createRemote } = requireESM("./index.mjs");
 
 module.exports = createRemote;
 module.exports.createRemote = createRemote;
-module.exports.AndroidTVSetup = AndroidTVSetup;
 module.exports.default = createRemote;

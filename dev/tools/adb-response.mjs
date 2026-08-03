@@ -18,7 +18,6 @@
  * Usage: node dev/tools/adb-response.mjs [ip]
  */
 
-import createRemote from "../../src/lib/android-tv-remote.mjs";
 import adbkit from "@devicefarmer/adbkit";
 
 const Adb = adbkit.Adb;

@@ -7,6 +7,9 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
 	{
+		ignores: ["node_modules/**", ".git/**", ".vscode/**", "coverage/**", "**/package-lock.json"]
+	},
+	{
 		files: ["**/*.{js,mjs,cjs}"],
 		plugins: { js },
 		extends: ["js/recommended"],
@@ -25,7 +28,7 @@ export default defineConfig([
 	{ files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
 	{ files: ["**/*.{js,mjs,cjs}"], languageOptions: { globals: globals.node } },
 	{
-		files: ["**/test/**/*test.js"],
+		files: ["tests/**/*.test.vitest.mjs"],
 		languageOptions: {
 			globals: {
 				beforeAll: true,

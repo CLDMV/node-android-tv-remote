@@ -1,0 +1,46 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/stale.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/stale.yml
+#
+# First-run guidance: on a repo with an existing backlog, the first
+# scheduled run can mark a LOT of issues stale at once (notification storm).
+# Recommended: enable with `dry_run: true` first, dispatch manually to
+# preview, then flip to live. The dispatch input below makes this easy.
+#
+# Batch 2.3 from tmp/plan-future-workflows.md.
+name: 🍂 Stale Issues & PRs
+
+on:
+    schedule:
+        - cron: "13 5 * * *" # daily 05:13 UTC (off-the-hour to avoid GH cron stampede)
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: "Preview only — no changes will be made"
+                type: boolean
+                default: false
+
+permissions:
+    issues: write
+    pull-requests: write
+
+jobs:
+    sweep:
+        uses: CLDMV/.github/.github/workflows/reusable-stale.yml@v4
+        with:
+            dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+            # Override timers if needed:
+            # days_before_issue_stale: 60
+            # days_before_issue_close: 14
+            # days_before_pr_stale: 30
+            # days_before_pr_close: 7
+        secrets:
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

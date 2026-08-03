@@ -1,0 +1,61 @@
+#
+# @Project: @cldmv/.github
+# @Filename: /examples/individual-repo-workflows/release-flow-v4/next-release.yml
+# @Date: 2026-05-22 00:00:00 -07:00 (1779778800)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/next-release.yml
+#
+# v4 core: maintain the ONE persistent `next → master` release PR for this repo.
+#
+# Fires on every push to `next` (contributor PR squash-merges land here).
+# Resolves the existing release PR and refreshes it, or creates it the first
+# time `next` diverges from master. The release PR batches all accumulated
+# feature commits into a single release — that batching is v4's whole point
+# (see CLDMV/.github docs/conventions/release-flow-v4.md §5.3, §6.1).
+#
+# Thin caller: all job logic (plan / create / refresh) lives in the reusable,
+# pinned at @v4. Bumping the pin carries fixes without editing this file.
+# CUSTOMIZE:
+#   - `package_name`  → your npm package (or any unique identifier)
+#   - `build_command` → your build script, or a stub like
+#                       `echo '✓ no build step'` for a meta package (optional;
+#                       defaults to `npm run build:ci`)
+name: 🚀 Next Release (v4)
+
+on:
+    push:
+        branches: [next]
+    workflow_dispatch: # manual kick — e.g. to open/refresh the PR for content already on `next`
+
+# Serialize: each run re-resolves the current PR state, so queueing (not
+# cancelling) avoids a create/refresh race when pushes land back-to-back.
+concurrency:
+    group: next-release-${{ github.repository }}
+    cancel-in-progress: false
+
+jobs:
+    release:
+        permissions:
+            contents: write
+            pull-requests: write
+        uses: CLDMV/.github/.github/workflows/workflow-next-release.yml@v4
+        with:
+            package_name: "@cldmv/node-android-tv-remote"
+            build_command: "echo '✓ no build step'"
+        secrets:
+            # Map your repo/org secrets to the expected names.
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+            # Optional release-PR notifier webhooks — each is independently
+            # opt-in: leave one unset and that channel is silently skipped.
+            # Delete the lines you don't use.
+            DISCORD_RELEASE_PR_PUBLIC_WEBHOOK: ${{ secrets.DISCORD_RELEASE_PR_PUBLIC_WEBHOOK }}
+            DISCORD_RELEASE_PR_PRIVATE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_PR_PRIVATE_WEBHOOK }}
+            SLACK_RELEASE_PR_PUBLIC_WEBHOOK: ${{ secrets.SLACK_RELEASE_PR_PUBLIC_WEBHOOK }}
+            SLACK_RELEASE_PR_PRIVATE_WEBHOOK: ${{ secrets.SLACK_RELEASE_PR_PRIVATE_WEBHOOK }}
+            GENERIC_RELEASE_PR_PUBLIC_WEBHOOK: ${{ secrets.GENERIC_RELEASE_PR_PUBLIC_WEBHOOK }}
+            GENERIC_RELEASE_PR_PRIVATE_WEBHOOK: ${{ secrets.GENERIC_RELEASE_PR_PRIVATE_WEBHOOK }}

@@ -1,0 +1,125 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/publish.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/publish.yml
+name: 📦 Release and Publish
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - "**.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Enable debug logging for troubleshooting"
+        type: boolean
+        required: false
+        default: false
+      dry_run:
+        description: "Dry run mode - validate everything but don't publish or create releases"
+        type: boolean
+        required: false
+        default: false
+      node_version:
+        description: "Node.js version to use (default: lts/*)"
+        type: string
+        required: false
+        default: "lts/*"
+      package_manager:
+        description: "Package manager (npm or yarn)"
+        type: string
+        required: false
+        default: "npm"
+      test_environment:
+        description: "Environment for tests (affects NODE_ENV and NODE_OPTIONS --conditions flag)"
+        type: string
+        required: false
+        default: "development"
+      version:
+        description: "Version to publish (auto-detected from package.json if not provided)"
+        type: string
+        required: false
+        default: ""
+      publish_to_npm:
+        description: "Publish to NPM registry"
+        type: boolean
+        required: false
+        default: true
+      publish_to_github_packages:
+        description: "Publish to GitHub Packages registry"
+        type: boolean
+        required: false
+        default: true
+      min_node_version:
+        description: "Minimum Node.js version for matrix testing (enables matrix when set)"
+        type: string
+        required: false
+        default: "22"
+      max_node_major:
+        description: "Override max Node.js major version (default: 24)"
+        type: string
+        required: false
+        default: "24"
+      use_gpg:
+        description: "Enable GPG signing (if GPG secrets provided)"
+        type: boolean
+        required: false
+        default: false
+
+# NEVER cancel an in-flight publish — half-published versions are nasty to
+# clean up. Concurrent publishes for the same ref queue instead so they
+# serialize naturally.
+concurrency:
+  group: publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-package:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: CLDMV/.github/.github/workflows/workflow-publish.yml@v4
+    with:
+      package_name: "@cldmv/node-android-tv-remote" # Required: replace with your NPM package name
+      debug: ${{ github.event.inputs.debug == 'true' }}
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+      node_version: ${{ github.event.inputs.node_version || 'lts/*' }}
+      package_manager: ${{ github.event.inputs.package_manager || 'npm' }}
+      version: ${{ github.event.inputs.version || '' }}
+      publish_to_npm: ${{ github.event.inputs.publish_to_npm != 'false' }}
+      publish_to_github_packages: ${{ github.event.inputs.publish_to_github_packages != 'false' }}
+      publish_command: ""
+      github_packages_publish_command: ""
+      min_node_version: ${{ github.event.inputs.min_node_version || '22' }}
+      max_node_major: ${{ github.event.inputs.max_node_major || '24' }}
+      test_command: "npm test" # Use defaults: NODE_ENV=development, NODE_OPTIONS=--conditions=development
+      # test_command: "NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override NODE_OPTIONS only
+      # test_command: "NODE_ENV=test npm test"  # Override NODE_ENV only
+      # test_command: "NODE_ENV=test NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override both
+      test_environment: ${{ github.event.inputs.test_environment || 'development' }} # Alternative to setting in test_command
+      build_command: "npm run build:ci"
+      is_prerelease: false
+      release_source_only: false
+      create_documentation: true
+      skip_performance_tests: false
+      skip_matrix_tests: false
+      use_gpg: ${{ github.event.inputs.use_gpg == 'true' }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+      GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}

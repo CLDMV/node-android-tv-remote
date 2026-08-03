@@ -1,0 +1,60 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/cla.yml
+# @Date: 2026-07-19 00:00:00 -07:00 (1784523600)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/cla.yml
+#
+# Per-CLA-version signing with per-repo override support. Each commit author
+# must either:
+#   - Be in the org (silent pass via /orgs/CLDMV/members lookup)
+#   - Be in the exempt-bots list
+#   - Already have a signature record at the active (scope, version) in the
+#     central ledger repo (default: CLDMV/.cla-signatures)
+#   - Reply on this PR with the exact required text
+#
+# Default vs. override scope:
+#   - DEFAULT (this repo has NO root-level CLA.md): the bot uses the org-wide
+#     CLA at cla-versions/v<X.Y>.md in the ledger. Signing once covers every
+#     CLDMV repo that uses the default until the major.minor is bumped.
+#   - OVERRIDE (this repo HAS a root-level CLA.md): the bot enforces the
+#     consumer-repo text and reads the version from its header. Signatures
+#     live under signatures/<platform>/overrides/<owner>/<repo>/v<X.Y>/ and
+#     are scoped to this repo only.
+#
+# Required setup:
+#   - Bot App must have `Organization permissions → Members: read` for the
+#     org-member exemption.
+#   - Bot App must have `Repository contents: write` on the ledger repo.
+#   - Optional `CLDMV_CLA_BOT_APP_CLIENT_ID` / `CLDMV_CLA_BOT_APP_PRIVATE_KEY`
+#     org secrets override the general bot identity for CLA actions only.
+name: 📜 CLA
+
+on:
+    pull_request_target:
+        types: [opened, synchronize, reopened, ready_for_review]
+    issue_comment:
+        types: [created]
+
+permissions:
+    contents: read
+    pull-requests: write
+    statuses: write
+    issues: write
+
+jobs:
+    cla:
+        uses: CLDMV/.github/.github/workflows/reusable-cla.yml@v4
+        with:
+            cla_version: "1.0"
+        secrets:
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+            CLA_BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_CLA_BOT_APP_CLIENT_ID }}
+            CLA_BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_CLA_BOT_APP_PRIVATE_KEY }}
+            TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+            TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}

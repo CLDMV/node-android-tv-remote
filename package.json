@@ -1,6 +1,6 @@
 {
 	"name": "@cldmv/node-android-tv-remote",
-	"version": "2.1.0",
+	"version": "2.1.1",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
 	"exports": {
@@ -10,9 +10,18 @@
 		}
 	},
 	"scripts": {
-		"test": "jest",
 		"postinstall": "node scripts/postinstall.mjs",
-		"setup-device": "node scripts/setup-device.mjs"
+		"setup-device": "node scripts/setup-device.mjs",
+		"build": "echo '✓ no build step'",
+		"build:ci": "echo '✓ no build step'",
+		"test": "node tests/run-vitest.mjs",
+		"test:watch": "vitest --config .configs/vitest.config.mjs",
+		"coverage": "node tests/run-vitest.mjs --coverage-quiet",
+		"ci:coverage": "npm run coverage",
+		"lint": "eslint --config eslint.config.mjs .",
+		"lint:fix": "eslint --config eslint.config.mjs . --fix",
+		"format": "prettier --config .prettierrc --write .",
+		"format:check": "prettier --config .prettierrc --check ."
 	},
 	"keywords": [
 		"android",
@@ -52,15 +61,24 @@
 	],
 	"dependencies": {
 		"@devicefarmer/adbkit": "^3.3.8",
-		"sharp": "^0.34.4"
-	},
-	"devDependencies": {
-		"jest": "^30.0.5"
+		"sharp": "^0.35.3"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"engines": {
-		"node": "^18.17.0 || ^20.3.0 || >=21.0.0"
+		"node": ">=20.9.0"
+	},
+	"devDependencies": {
+		"@cldmv/vitest-runner": "^1.2.0",
+		"@eslint/css": "^1.4.0",
+		"@eslint/js": "^10.0.1",
+		"@eslint/json": "^2.0.1",
+		"@eslint/markdown": "^8.0.3",
+		"@vitest/coverage-v8": "^4.1.10",
+		"eslint": "^10.8.0",
+		"globals": "^17.9.0",
+		"prettier": "^3.9.6",
+		"vitest": "^4.1.10"
 	}
 }

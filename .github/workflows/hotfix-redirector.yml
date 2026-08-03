@@ -1,0 +1,51 @@
+#
+# @Project: @cldmv/.github
+# @Filename: /examples/individual-repo-workflows/release-flow-v4/hotfix-redirector.yml
+# @Date: 2026-05-22 00:00:00 -07:00 (1779778800)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/hotfix-redirector.yml
+#
+# v4 hotfix lane: retarget hotfix/security PRs to the `hotfixes` branch.
+#
+# Two paths trigger a redirect (CLDMV/.github docs/conventions/release-flow-v4.md §5.2, §6.5):
+#   1. Head branch matches `hotfix/*` or `security/*` (human-driven hotfix flow).
+#   2. Author is `dependabot[bot]` AND its base isn't Dependabot's routine
+#      target-branch (default "next") — GitHub always overrides dependabot.yml's
+#      target-branch for security updates, so a base landing on the default
+#      branch instead of "next" is itself the signal. Routine version bumps stay
+#      on "next".
+#
+# Thin caller: all job logic (token, checkout, git identity, redirect action)
+# lives in the reusable, pinned at @v4. Bumping the pin carries new requirements
+# (e.g. the checkout + git identity the cherry-pick path needs) without editing
+# this file.
+name: 🔀 Hotfix PR Redirector (v4)
+
+# SECURITY NOTE: pull_request_target runs in the BASE repo's context with WRITE
+# permissions + secrets. The reusable checks out `hotfixes` (a trusted base-repo
+# branch, NOT the PR head/fork) and only cherry-picks/pushes against it.
+#
+# `opened` only (NOT `edited`): if a maintainer manually re-targets the PR, we
+# must not fight them by redirecting again.
+on:
+    pull_request_target:
+        types: [opened]
+
+concurrency:
+    group: hotfix-redirector-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    redirect:
+        permissions:
+            contents: write
+            pull-requests: write
+        uses: CLDMV/.github/.github/workflows/workflow-hotfix-redirector.yml@v4
+        secrets:
+            # Map your repo/org secrets to the expected names.
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

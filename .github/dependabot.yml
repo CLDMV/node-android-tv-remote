@@ -1,0 +1,79 @@
+#
+# @Project: @cldmv/.github
+# @Filename: /examples/individual-repo-workflows/automation/dependabot.yml
+# @Date: 2026-05-26 00:00:00 -07:00 (1782460800)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/dependabot.yml
+#
+# Dependabot configuration tuned for the v4 staging-branch release flow.
+#
+# How it fits with v4:
+#   - All Dependabot PRs target `next` so they pool with every other
+#     contributor change and batch into the next release.
+#   - `dependabot-auto-merge.yml` (in this same folder) auto-merges
+#     patch/minor bumps into `next` after CI passes — zero-touch pooling.
+#     Delete that workflow if you'd rather review each bump by hand.
+#   - Security updates are detected by `hotfix-redirector.yml`
+#     (release-flow-v4/) by GHSA references in the PR body and auto-promoted
+#     from `next` → `hotfixes` so they ship via the hotfix lane, not the
+#     next-batch release. No special routing needed in this config.
+#
+# Customize per repo:
+#   - Add or remove `package-ecosystem` blocks for your stack (gomod, pip,
+#     bundler, gradle, maven, cargo, docker, etc.).
+#   - Adjust `directory` if your manifests don't live at the repo root.
+#   - Tighten `open-pull-requests-limit` if Dependabot's noise is too much.
+#   - Add `allow` / `ignore` rules for specific packages.
+#   - Add `groups` to bundle related bumps into a single PR.
+
+version: 2
+updates:
+    # GitHub Actions: keep pinned action SHAs / version tags fresh.
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      target-branch: "next"
+      schedule:
+          interval: "weekly"
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: "deps"
+      # Grouped PRs cut noise: one PR per (security | patch | minor) bundle
+      # per week instead of N separate PRs. Security PRs still get retargeted
+      # to `hotfixes` by hotfix-redirector.yml when GHSA refs appear in the
+      # body — bundling N GHSA fixes into one PR is fine, the redirector
+      # only needs one match to retarget.
+      groups:
+          security:
+              applies-to: security-updates
+              patterns: ["*"]
+          patch:
+              applies-to: version-updates
+              update-types: ["patch"]
+          minor:
+              applies-to: version-updates
+              update-types: ["minor"]
+
+    # NPM: package.json + package-lock.json updates.
+    # Delete this block if your repo isn't a Node project.
+    - package-ecosystem: "npm"
+      directory: "/"
+      target-branch: "next"
+      schedule:
+          interval: "weekly"
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: "deps"
+      groups:
+          security:
+              applies-to: security-updates
+              patterns: ["*"]
+          patch:
+              applies-to: version-updates
+              update-types: ["patch"]
+          minor:
+              applies-to: version-updates
+              update-types: ["minor"]

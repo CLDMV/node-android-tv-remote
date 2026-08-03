@@ -1,0 +1,61 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/scorecard.yml
+# @Date: 2026-07-19 00:00:00 -07:00 (1784523600)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/scorecard.yml
+#
+# OpenSSF Scorecard — scans the repo against ~18 security best-practice checks
+# and produces a 0-10 score. Thin caller: the steps and the SHA-pinned
+# scorecard-action version live in reusable-scorecard.yml@v4, so the action
+# version can't drift in this copy (it just calls the org reusable). Triggers
+# stay here, per OpenSSF's recommended setup.
+#
+# NOTE: this MUST stay a thin caller. OSSF Scorecard's publish step verifies
+# the analysis job and allows only a fixed set of steps; the inline form used
+# our checkout-code composite, which trips "job has unallowed step" -> publish
+# HTTP 400. The reusable uses actions/checkout directly, which passes.
+name: 🔬 OpenSSF Scorecard
+
+on:
+    branch_protection_rule:
+    schedule:
+        - cron: "32 7 * * 1" # weekly Monday 07:32 UTC
+    push:
+        branches: [master, main]
+    workflow_dispatch:
+
+# Caller must grant what the reusable needs — notably id-token: write for the
+# OpenSSF transparency-log publish.
+#
+# No workflow-level `permissions:` here — grant on the `analyze` job below
+# instead. scorecard-action's publish step verifies that write permissions
+# were granted JOB-scoped, not workflow-wide (matching OSSF's own example:
+# https://github.com/ossf/scorecard-action#example-workflow). A workflow-level
+# grant satisfies GitHub's own reusable-workflow permission rules fine, but
+# still trips scorecard-action's own check — the rejection ("workflow
+# verification failed: global perm is set to write: permission for X is set
+# to write") means "granted globally," not "forbidden."
+#
+# Do NOT add security-events: write here while publish_results: true below.
+# scorecard-action's publish step rejects submissions from a workflow whose
+# token has security-events write access (it verifies the caller can't have
+# tampered with results before they hit the public transparency log). That
+# trade-off means the reusable's own SARIF-to-Security-tab upload step has no
+# permission to run in this configuration; the public OpenSSF badge is the
+# thing actually enabled here, so this repo takes that trade-off. Only add
+# security-events: write back (job-scoped) if publish_results is set to false
+# instead.
+jobs:
+    analyze:
+        permissions:
+            id-token: write
+            contents: read
+            actions: read
+        uses: CLDMV/.github/.github/workflows/reusable-scorecard.yml@v4
+        with:
+            publish_results: true # set false for private repos / to skip the public badge

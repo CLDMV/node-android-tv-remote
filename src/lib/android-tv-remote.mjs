@@ -143,7 +143,13 @@ import { EventEmitter } from "events";
 import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
 import sharp from "sharp";
-const Adb = adbkit.Adb;
+// @devicefarmer/adbkit is plain CJS (`exports.default` / `exports.Adb` both
+// getter re-exports of the same class). Under plain Node's ESM/CJS interop,
+// the default import resolves to `module.exports` (so `.Adb` holds the
+// class); under Vite/Rollup-based CJS interop (e.g. vitest with the module
+// inlined), the default import unwraps straight to the class itself. Cover
+// both shapes rather than assuming one.
+const Adb = adbkit.Adb ?? adbkit;
 
 /**
  * Wraps an async function to support both promise and callback styles.

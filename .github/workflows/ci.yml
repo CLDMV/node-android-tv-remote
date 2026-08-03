@@ -1,0 +1,310 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/ci.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/ci.yml
+name: 🧪 CI Tests & Build
+
+on:
+  # Note: do NOT add `paths:` / `paths-ignore:` at the trigger level. Doing
+  # that makes GitHub skip the workflow entirely for docs-only changes, which
+  # means `Required PR Check` never posts and the ruleset blocks the merge.
+  # The reusable workflow's `paths-gate` job does the same job from inside,
+  # and exposes a `docs_only` output so this workflow can still green-light
+  # the required check for docs-only PRs (see `required-check` below). The
+  # ignore globs themselves are passed via the `paths_ignore:` input below
+  # — override there if your repo needs different rules.
+  #
+  # `push` fires for branches in this repo only (forks push to their own remote,
+  # not ours). Branch protection on the PR reads the status check from the
+  # commit SHA, so this single trigger covers both pre-PR pushes and PR head
+  # updates without duplicating runs.
+  push:
+    # Bot-managed branches (badges, gh-pages) carry no source to test.
+    branches-ignore: [badges, gh-pages]
+  # `pull_request` covers two cases:
+  #   - Fork PRs (push doesn't fire upstream for fork commits).
+  #   - Release PRs from `next` / `hotfixes` → `master`. Their head SHA is
+  #     a bot `chore: bump version` commit that workflow-ci.yml's
+  #     `commit-gate` job filters out on the push path, so without the
+  #     pull_request fallback the release PR's `Required PR Check`
+  #     status never gets posted and the ruleset blocks the merge.
+  # `branches:` includes the v4 integration branches so PRs targeting
+  # `next` / `hotfixes` get CI too — feature PRs from forks would
+  # otherwise get nothing. Non-fork feature PRs still skip the
+  # pull_request `ci` job (push covers them); see the `if:` on the job.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master, main, next, hotfixes]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Enable debug logging for troubleshooting"
+        type: boolean
+        required: false
+        default: false
+      node_version:
+        description: "Node.js version to use (default: lts/*)"
+        type: string
+        required: false
+        default: "lts/*"
+      min_node_version:
+        description: "Minimum Node.js version for matrix testing (default: 22, oldest non-EOL LTS)"
+        type: string
+        required: false
+        default: "22"
+      max_node_major:
+        description: "Override max Node.js major version (default: 24)"
+        type: string
+        required: false
+        default: "24"
+      lts_only_matrix:
+        description: "Only include even-numbered (LTS) Node.js major versions in the test matrix"
+        type: boolean
+        required: false
+        default: true
+      package_manager:
+        description: "Package manager (npm or yarn)"
+        type: string
+        required: false
+        default: "npm"
+      test_environment:
+        description: "Environment for tests (affects NODE_ENV and NODE_OPTIONS --conditions flag)"
+        type: string
+        required: false
+        default: "development"
+      # ── Coverage badge ───────────────────────────────────────────────
+      enable_coverage_badge:
+        description: "Run the coverage + badge-push job after CI passes"
+        type: boolean
+        required: false
+        default: true
+      coverage_command:
+        description: "Command to run tests and generate coverage data"
+        type: string
+        required: false
+        default: "npm run ci:coverage"
+      coverage_summary_path:
+        description: "Path to the coverage-summary.json produced by Jest / c8"
+        type: string
+        required: false
+        default: "coverage/coverage-summary.json"
+      badges_branch:
+        description: "Branch where the badge JSON is published"
+        type: string
+        required: false
+        default: "badges"
+      badge_filename:
+        description: "Filename for the badge JSON committed to the badges branch"
+        type: string
+        required: false
+        default: "coverage.json"
+      upload_coverage_artifact:
+        description: "Upload the full coverage/ directory as a workflow artifact"
+        type: boolean
+        required: false
+        default: true
+      # ── Type check ──────────────────────────────────────────────────
+      type_check_command:
+        description: "Command to run type checking"
+        type: string
+        required: false
+        default: "npm run test:types"
+      skip_type_check:
+        description: "Skip the type-check step in the coverage-badge job"
+        type: boolean
+        required: false
+        default: false
+      default_branch:
+        description: "Default branch name — badge is only pushed on pushes to this branch"
+        type: string
+        required: false
+        default: "master"
+      enable_coverage_pr_comment:
+        description: "Inject a coverage badge into the PR description on pull request events"
+        type: boolean
+        required: false
+        default: true
+
+# Cancel superseded runs on feature branches; keep every master/main run as the
+# permanent green record. Keyed on github.ref so push and pull_request events
+# for the same branch share a group (the `if:` on the ci job already prevents
+# non-fork PR sync from running, but the shared group guards against edge
+# cases).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
+
+# Workflow-level: matches the broadest write surface the called
+# `workflow-ci.yml` reaches across its branches:
+#   - coverage-badge:      contents:write    (push to `badges` branch)
+#   - coverage-pr-comment: pull-requests:write (edit PR description body)
+# Jobs that don't need write (CI matrix, commit-gate, the mirror below)
+# inherit but never exercise the surface. The mirror job overrides to
+# `permissions: {}` since it's pure shell.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  ci:
+    name: 🏗️ Continuous Integration
+    # Run on pull_request when:
+    #   - The PR is from a fork (push doesn't fire upstream for fork commits).
+    #   - The PR is a v4 release PR — head ref is `next` or `hotfixes`
+    #     targeting `master`/`main`. Push-event CI on the head SHA is
+    #     unreliable for these because workflow-ci.yml's `commit-gate`
+    #     filters out the bot's `chore: bump version` commit, so without
+    #     this fallback the release PR's `Required PR Check` never posts.
+    # Other (in-repo, non-release) PRs skip — the push event on the head
+    # branch already ran CI and posted status to the SHA.
+    if: |
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.fork == true ||
+      github.event.pull_request.head.ref == 'next' ||
+      github.event.pull_request.head.ref == 'hotfixes'
+    uses: CLDMV/.github/.github/workflows/workflow-ci.yml@v4
+    with:
+      package_name: "@cldmv/node-android-tv-remote" # Required: replace with your NPM package name
+      # Globs that should NOT trigger the heavy CI matrix. When every changed
+      # file matches one of these, `docs_only=true` flows out of the reusable
+      # and `required-check` below posts a green Required PR Check without
+      # running CI. The default in the reusable matches these — override only
+      # if your repo needs different rules.
+      paths_ignore: |
+        **.md
+        docs/**
+        *.md
+        LICENSE
+        .gitignore
+      debug: ${{ github.event.inputs.debug == 'true' }}
+      node_version: ${{ github.event.inputs.node_version || 'lts/*' }}
+      min_node_version: ${{ github.event.inputs.min_node_version || '22' }}
+      max_node_major: ${{ github.event.inputs.max_node_major || '24' }}
+      # LTS-only matrix (even majors: 22, 24, …) on every event. Odd majors
+      # (23, 25, …) are non-LTS interim releases, and the native-binding test
+      # toolchain (vitest 4 / rolldown / vite 8) excludes them via `engines`
+      # (`^20.0.0 || ^22.0.0 || >=24.0.0`), so a "full matrix" on them only
+      # re-discovers a known toolchain gap ("Cannot find native binding")
+      # rather than a real per-version regression. workflow_dispatch can
+      # still opt out (set false).
+      lts_only_matrix: ${{ github.event.inputs.lts_only_matrix != 'false' }}
+      package_manager: ${{ github.event.inputs.package_manager || 'npm' }}
+      test_command: "npm test" # Use defaults: NODE_ENV=development, NODE_OPTIONS=--conditions=development
+      # test_command: "NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override NODE_OPTIONS only
+      # test_command: "NODE_ENV=test npm test"  # Override NODE_ENV only
+      # test_command: "NODE_ENV=test NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override both
+      test_environment: ${{ github.event.inputs.test_environment || 'development' }} # Alternative to setting in test_command
+      build_command: "echo '✓ no build step'"
+      skip_performance_tests: false
+      skip_matrix_tests: false
+
+      # ── Coverage badge ─────────────────────────────────────────────────────
+      # Runs after a successful CI build; pushes a Shields.io-compatible badge
+      # JSON to the `badges` branch (signed commit via bot GPG).
+      # Only runs on direct pushes to default_branch — PRs and feature branches
+      # are automatically skipped so coverage always reflects merged master code.
+      # Requires: the coverage_command produces coverage/coverage-summary.json
+      enable_coverage_badge: ${{ github.event.inputs.enable_coverage_badge != 'false' }}
+      default_branch: ${{ github.event.inputs.default_branch || 'master' }} # Badge only pushed when a push lands on this branch
+      coverage_command: ${{ github.event.inputs.coverage_command || 'npm run ci:coverage' }}
+      coverage_summary_path: ${{ github.event.inputs.coverage_summary_path || 'coverage/coverage-summary.json' }}
+      badges_branch: ${{ github.event.inputs.badges_branch || 'badges' }}
+      badge_filename: ${{ github.event.inputs.badge_filename || 'coverage.json' }}
+      upload_coverage_artifact: ${{ github.event.inputs.upload_coverage_artifact != 'false' }}
+
+      # ── Type check (runs inside the coverage-badge job) ────────────────────
+      # Skipped deliberately: this repo ships plain JS (no TypeScript, no
+      # `.ts`/`tsconfig.json` anywhere in the tree) — there is no `tsc` pass
+      # to run. ESLint is the static-analysis net.
+      type_check_command: ${{ github.event.inputs.type_check_command || 'npm run test:types' }}
+      skip_type_check: true
+
+      # ── PR coverage badge ─────────────────────────────────────────────────
+      # Injects a Shields.io badge + breakdown table directly into the PR body
+      # on every push to the PR branch. Only fires on pull_request events;
+      # skipped automatically on push and workflow_dispatch. No files committed.
+      enable_coverage_pr_comment: ${{ github.event.inputs.enable_coverage_pr_comment != 'false' }}
+
+    # Authentication & Bot Configuration
+    # The workflow supports automatic App token detection for enhanced permissions and proper attribution:
+    # - WITH App secrets: Operations attributed to CLDMV bot, enhanced permissions for workflow repositories
+    # - WITHOUT App secrets: Falls back to GitHub Actions bot with standard permissions
+    # Note: CI workflow currently only runs build/test jobs, but App secrets are included for consistency
+    # To set up App authentication, add these secrets to your repository settings:
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Optional: CLDMV Bot credentials for enhanced permissions and proper attribution
+      # If not provided, will use default GITHUB_TOKEN with GitHub Actions bot attribution
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      # Required when enable_coverage_badge: true
+      BOT_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      BOT_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+      BOT_GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+      BOT_GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}
+
+  # ✅ Stable check that mirrors the `ci` result so branch protection has a
+  # single, predictable status name to require. The push event runs on the
+  # same SHA that becomes the PR head, so the status attaches to the PR
+  # automatically — no `pull_request` round-trip needed for non-fork
+  # non-release PRs.
+  required-check:
+    name: ✅ Required PR Check
+    needs: ci
+    # Mirror the `ci` job's gating exactly. The four cases that run:
+    #   1. push events                                            (job needs CI run)
+    #   2. fork PRs                                               (push doesn't cover forks)
+    #   3. release PRs from `next` → master/main                  (push covers SHA but commit-gate skips chore-bump)
+    #   4. release PRs from `hotfixes` → master/main              (same reason)
+    # In-repo feature PRs targeting `next` / `hotfixes` skip on
+    # pull_request — push on the head branch already posted the status
+    # on the SHA, and mirroring here would overwrite it.
+    if: |
+      always() && (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.fork == true ||
+        github.event.pull_request.head.ref == 'next' ||
+        github.event.pull_request.head.ref == 'hotfixes'
+      )
+    runs-on: ubuntu-latest
+    # Pure shell mirror — no GitHub API access. Strip the workflow's
+    # write defaults to zero for this job.
+    permissions: {}
+    steps:
+      - name: Mirror reusable result
+        env:
+          IS_MASTER_SYNC: ${{ needs.ci.outputs.is_master_sync }}
+          DOCS_ONLY: ${{ needs.ci.outputs.docs_only }}
+          CI_RESULT: ${{ needs.ci.result }}
+        run: |
+          echo "ci.result=$CI_RESULT  docs_only=$DOCS_ONLY  is_master_sync=$IS_MASTER_SYNC"
+          # next/hotfixes was force-synced to master — head SHA matches the
+          # default branch, nothing new to test, green-light without running CI.
+          if [ "$IS_MASTER_SYNC" = "true" ]; then
+            echo "Branch tip matches master — Required PR Check passes without running CI."
+            exit 0
+          fi
+          # Docs-only PR — the reusable skipped the heavy chain and exported
+          # docs_only=true. Green-light Required PR Check so the ruleset
+          # doesn't block a docs change.
+          if [ "$DOCS_ONLY" = "true" ]; then
+            echo "Docs-only change — Required PR Check passes without running CI."
+            exit 0
+          fi
+          if [ "$CI_RESULT" = "success" ]; then
+            echo "Reusable CI passed."
+            exit 0
+          elif [ "$CI_RESULT" = "failure" ] || [ "$CI_RESULT" = "cancelled" ]; then
+            echo "Reusable CI did not pass."
+            exit 1
+          else
+            # covers 'skipped' or undefined; force red to avoid silent green
+            echo "Reusable CI produced no pass/fail; treating as failure."
+            exit 1
+          fi

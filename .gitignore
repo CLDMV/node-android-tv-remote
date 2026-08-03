@@ -148,8 +148,5 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-# github data
-.github/
-
 # vscode data
 .vscode/

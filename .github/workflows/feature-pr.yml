@@ -1,0 +1,59 @@
+#
+# @Project: @cldmv/.github
+# @Filename: /examples/individual-repo-workflows/release-flow-v4/feature-pr.yml
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/feature-pr.yml
+#
+# v4 ergonomics: auto-opens (and refreshes) a PR from a code-side branch to the
+# right integration branch on every push.
+#
+# Mapping (matches CLDMV/.github docs/conventions/branch-naming.md):
+#   feat/*, feature/*, fix/*, release/*, chore/*, refactor/*,
+#   docs/*, ci/*, perf/*, test/*, style/*           → next
+#   hotfix/*                                         → hotfixes
+#
+# Reserved branches NOT auto-PR'd: dependabot/* and copilot/* (they manage their
+# own PRs); badges, gh-pages (bot-only); master/main (the target).
+#
+# Thin caller: all job logic (target detection, changelog body, PR create/
+# refresh) lives in the reusable, pinned at @v4. Bumping the pin carries fixes
+# without editing this file. The `push` trigger and its branch-prefix list stay
+# here (GitHub requires the trigger local, and the list is per-repo config).
+name: 🔀 Feature PR (v4)
+
+on:
+    push:
+        branches:
+            # CUSTOMIZE: prune this list to whichever branch prefixes your
+            # repo uses. Must align with the `case` statement in the reusable.
+            - 'feat/**'
+            - 'feature/**'
+            - 'fix/**'
+            - 'release/**'
+            - 'chore/**'
+            - 'refactor/**'
+            - 'docs/**'
+            - 'ci/**'
+            - 'perf/**'
+            - 'test/**'
+            - 'style/**'
+            - 'hotfix/**'
+
+concurrency:
+    group: feature-pr-${{ github.repository }}-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    open-pr:
+        permissions:
+            contents: read
+            pull-requests: write
+        uses: CLDMV/.github/.github/workflows/workflow-feature-pr.yml@v4
+        secrets:
+            # Map your repo/org secrets to the expected names.
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

@@ -1,0 +1,64 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/tag-health.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/tag-health.yml
+#
+# Wakes the reusable-tag-health.yml workflow on a weekly schedule. The
+# reusable already implements validation, bot-signature fixes, unsigned-tag
+# fixes, orphaned-release recovery, orphaned-tag relocation, and rolling
+# major/minor tag maintenance — but it's dormant by default. This template
+# is what triggers it.
+#
+# Batch 3.1 from tmp/plan-future-workflows.md.
+name: 🏥 Tag Health
+
+on:
+    schedule:
+        # Weekly Sunday 04:04 UTC. Off-the-hour to dodge the GitHub :00-cron
+        # stampede; weekly cadence because tag drift accumulates slowly.
+        - cron: "4 4 * * 0"
+    workflow_dispatch:
+        inputs:
+            debug:
+                description: "Enable debug logging for troubleshooting"
+                type: boolean
+                required: false
+                default: false
+            create_documentation:
+                description: "Update VERSION_TAGS.md if rolling tags moved"
+                type: boolean
+                required: false
+                default: false
+            use_gpg:
+                description: "Enable GPG signing for any tags the sweep creates/recreates"
+                type: boolean
+                required: false
+                default: true
+
+permissions:
+    contents: write
+
+jobs:
+    health:
+        uses: CLDMV/.github/.github/workflows/reusable-tag-health.yml@v4
+        with:
+            debug: ${{ github.event.inputs.debug == 'true' }}
+            # Full unified sweep: validates, fixes bot signatures, fixes
+            # unsigned tags, recovers orphaned releases, relocates orphaned
+            # tags, and updates rolling major/minor refs.
+            run_unified_tag_health: true
+            create_documentation: ${{ github.event.inputs.create_documentation == 'true' }}
+            use_gpg: ${{ github.event.inputs.use_gpg != 'false' }}
+        secrets:
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+            TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+            TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+            GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+            GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}

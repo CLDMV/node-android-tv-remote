@@ -1,0 +1,106 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/v4-bootstrap.yml
+# @Date: 2026-05-26 00:00:00 -07:00 (1780124400)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/v4-bootstrap.yml
+#
+# Per-repo v4 bootstrap — thin wrapper around the shared
+# `org-bootstrap-repo@v4` action. Run once per repo from the Actions tab
+# (or, for org-wide rollout, prefer `local-org-onboarding.yml` in
+# CLDMV/.github which fans out across many repos in parallel).
+#
+# What gets applied (overwrite-with-warn — divergences are surfaced in the
+# run summary):
+#   - `next` + `hotfixes` branches created from master HEAD if missing
+#   - repo settings: allow_auto_merge=true, delete_branch_on_merge=false,
+#     allow_squash_merge=true, allow_merge_commit=true,
+#     allow_rebase_merge=false, allow_update_branch=true; plus PR-merge
+#     dialog defaults (merge_commit_title / squash_merge_commit_title =
+#     PR_TITLE, merge_commit_message / squash_merge_commit_message =
+#     PR_BODY) so the resulting commit captures the PR title + body
+#     verbatim (release-PR body = the categorized changelog → lands on
+#     master). Per-branch ruleset allowed_merge_methods picks the method.
+#   - security toggles: dependabot alerts + security updates, secret
+#     scanning + push protection, private vulnerability reporting
+#   - rulesets: replaces the three rulesets (Protect Master/Next/Hotfixes)
+#     with the org canonical defaults
+#
+# What is NOT applied (GitHub doesn't expose it via REST / GraphQL / gh CLI
+# — confirmed against community/community#188598; the bootstrap surfaces
+# this as a 'Manual one-time toggles' line in the run summary):
+#   - Settings → General → Pull Requests → "Auto-close issues with merged
+#     linked pull requests" (recommended ON). Toggle in the repo UI once.
+#
+# Idempotent — re-running is safe. Default `dry_run: true` previews
+# everything before applying.
+#
+# Full design: CLDMV/.github docs/conventions/release-flow-v4.md
+# Migration checklist: CLDMV/.github docs/migration/v3-to-v4.md
+name: 🚀 v4 Bootstrap
+
+on:
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: "Dry-run: preview every mutation without firing it. Default `true` — set to `false` to actually apply changes."
+                type: boolean
+                required: false
+                default: true
+            code_security:
+                description: "Code Security policy. off = disable. public-only = enable only if this repo is public (free). all = enable (paid on private)."
+                type: choice
+                required: false
+                default: "off"
+                options:
+                    - "off"
+                    - "public-only"
+                    - "all"
+            secret_protection:
+                description: "Secret Protection (scanning + push protection) policy. Same shape as code_security."
+                type: choice
+                required: false
+                default: "off"
+                options:
+                    - "off"
+                    - "public-only"
+                    - "all"
+            steps:
+                description: "Subset of phases to run, comma-separated."
+                required: false
+                default: "branches,settings,security,rulesets"
+
+permissions:
+    contents: read
+
+jobs:
+    bootstrap:
+        name: "🚀 Bootstrap v4 (this repo)"
+        runs-on: ubuntu-latest
+        steps:
+            - name: Create App token
+              id: app-token
+              # Full-permission App token — bootstrap needs administration:write
+              # for security toggles + ruleset import, plus contents:write for
+              # branch creation.
+              uses: CLDMV/.github/.github/actions/github/steps/create-app-token@v4
+              with:
+                  client_id: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+                  private_key: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+              env:
+                  BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+                  BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+
+            - name: Bootstrap
+              uses: CLDMV/.github/.github/actions/github/jobs/org-bootstrap-repo@v4
+              with:
+                  # target_repo defaults to GITHUB_REPOSITORY (this repo).
+                  github_token: ${{ steps.app-token.outputs.token }}
+                  dry_run: ${{ github.event.inputs.dry_run }}
+                  steps: ${{ github.event.inputs.steps }}
+                  code_security: ${{ github.event.inputs.code_security }}
+                  secret_protection: ${{ github.event.inputs.secret_protection }}

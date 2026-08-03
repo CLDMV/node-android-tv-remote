@@ -1,0 +1,44 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/labeler.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/labeler.yml
+#
+# Path-based PR auto-labeler. Uses CLDMV's org-default labeler.default.yml;
+# override per-repo by adding .github/labeler.yml in this repo (same shape).
+#
+# Labels applied additively — never removes labels added by humans or other
+# automation.
+#
+# Batch 5.2 from tmp/plan-future-workflows.md.
+name: 🏷️ PR Labeler
+
+# SECURITY NOTE: This workflow uses pull_request_target so it can apply labels
+# to fork PRs. pull_request_target runs in the BASE repo's context with WRITE
+# permissions and access to secrets. This is SAFE for THIS workflow because:
+#   - We never checkout the PR head ref
+#   - We never run code from the PR (no `run:` step uses PR data)
+#   - We only call REST APIs to read the file list and post labels
+# DO NOT add a checkout step or any step that executes PR-supplied content
+# (build commands, scripts, test runs, etc.) to this workflow.
+on:
+    pull_request_target:
+        types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+    contents: read
+    pull-requests: write
+
+jobs:
+    label:
+        uses: CLDMV/.github/.github/workflows/reusable-pr-labeler.yml@v4
+        # Optional. Without these, labels are attributed to github-actions[bot].
+        # With these, they're attributed to your CLDMV bot App.
+        secrets:
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

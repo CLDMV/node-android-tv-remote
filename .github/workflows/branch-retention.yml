@@ -1,0 +1,38 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/branch-retention.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/branch-retention.yml
+#
+# On PR merge: most branches deleted immediately; release/* keeps last 5,
+# hotfix/* keeps last 3. master/main/badges/gh-pages never touched.
+#
+# v4 flow: feature PRs merge into `next` and hotfix PRs into `hotfixes`
+# (not directly into master). next/hotfixes are in the branches: filter
+# below so this workflow fires on those PR closures too — otherwise
+# feat/* / fix/* / chore/* etc. would pile up on origin indefinitely.
+# (Repos that haven't adopted v4 just won't see those branches; the
+# extra entries in the filter are harmless.)
+name: 🌿 Branch Retention
+
+on:
+    pull_request:
+        types: [closed]
+        branches: [master, main, next, hotfixes]
+
+permissions:
+    contents: write
+    pull-requests: read
+
+jobs:
+    retain:
+        if: github.event.pull_request.merged == true
+        uses: CLDMV/.github/.github/workflows/reusable-branch-retention.yml@v4
+        secrets:
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

@@ -1,0 +1,87 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/update-major-version-tags.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/update-major-version-tags.yml
+name: 🏷️ Update Major Version Tags
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Enable debug logging for troubleshooting"
+        type: boolean
+        required: false
+        default: false
+      create_documentation:
+        description: "Whether to create/update VERSION_TAGS.md documentation"
+        type: boolean
+        required: false
+        default: false
+      use_gpg:
+        description: "Enable GPG signing (if GPG secrets provided)"
+        type: boolean
+        required: false
+        default: true
+      # Tag health configuration
+      max_tags:
+        description: "Maximum number of tags to process (safety limit)"
+        required: false
+        default: "100"
+      max_major_versions:
+        description: "Maximum number of major versions to process"
+        required: false
+        default: "10"
+      max_minor_versions:
+        description: "Maximum number of minor versions per major to process"
+        required: false
+        default: "10"
+      bot_patterns:
+        description: "JSON array of bot name patterns to identify bot signatures"
+        required: false
+        default: '["CLDMV Bot", "cldmv-bot", "github-actions[bot]"]'
+      include_patterns:
+        description: "JSON array of tag patterns to include (e.g. ['v*', 'release-*'])"
+        required: false
+        default: '["v*"]'
+      exclude_patterns:
+        description: "JSON array of tag patterns to exclude"
+        required: false
+        default: "[]"
+
+jobs:
+  update-tags:
+    # Skip release events fired without a tag_name (e.g. "untagged-<sha>" runs
+    # the bot or a prior code path can produce). The reusable workflow has its
+    # own tag-readiness polling for forward-facing prevention; this guard
+    # protects against legacy / external sources of untagged release events.
+    # Batch 1.2 from tmp/plan-future-workflows.md.
+    if: github.event_name != 'release' || github.event.release.tag_name != ''
+    uses: CLDMV/.github/.github/workflows/workflow-update-major-version-tags.yml@v4
+    permissions:
+      contents: write
+    with:
+      debug: ${{ github.event.inputs.debug == 'true' }}
+      create_documentation: ${{ github.event.inputs.create_documentation == 'true' }}
+      use_gpg: ${{ github.event.inputs.use_gpg != 'false' }}
+      max_tags: ${{ github.event.inputs.max_tags || '100' }}
+      max_major_versions: ${{ github.event.inputs.max_major_versions || '10' }}
+      max_minor_versions: ${{ github.event.inputs.max_minor_versions || '10' }}
+      bot_patterns: ${{ github.event.inputs.bot_patterns || '["CLDMV Bot", "cldmv-bot", "github-actions[bot]"]' }}
+      include_patterns: ${{ github.event.inputs.include_patterns || '["v*"]' }}
+      exclude_patterns: ${{ github.event.inputs.exclude_patterns || '[]' }}
+    secrets:
+      # Map your repo/org secrets to the expected names
+      TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+      GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

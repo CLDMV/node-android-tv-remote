@@ -1,0 +1,45 @@
+#
+# @Project: @cldmv/.github
+# @Filename: /examples/individual-repo-workflows/release-flow-v4/pr-title-normalizer.yml
+# @Date: 2026-05-22 00:00:00 -07:00 (1779778800)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/pr-title-normalizer.yml
+#
+# Normalize contributor PR titles to Conventional Commits format, derived from
+# the highest-priority commit in the PR. The release flow expects this shape, so
+# a v4 repo wants this enabled. (Also backportable to v3 repos — the underlying
+# action shipped in v3.3.0; it owns all skip logic: bot authors, the
+# long-running release PRs, titles already starting with `release:`, and titles
+# that already conform.)
+#
+# Thin caller: all job logic lives in the reusable, pinned at @v4. Bumping the
+# pin carries fixes without editing this file.
+name: 🏷️ PR Title Normalizer
+
+# SECURITY NOTE: pull_request_target runs in the BASE repo's context with WRITE
+# permissions and access to secrets. SAFE — the reusable's path is API-only (it
+# never checks out or executes PR content). Triggers on opened + synchronize
+# only (NOT edited): a maintainer hand-editing the title must not kick off a
+# re-normalize loop.
+on:
+    pull_request_target:
+        types: [opened, synchronize]
+
+concurrency:
+    group: pr-title-normalizer-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    normalize:
+        permissions:
+            contents: read
+            pull-requests: write
+        uses: CLDMV/.github/.github/workflows/workflow-pr-title-normalizer.yml@v4
+        secrets:
+            # Map your repo/org secrets to the expected names.
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

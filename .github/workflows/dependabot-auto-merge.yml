@@ -1,0 +1,54 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/dependabot-auto-merge.yml
+# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/dependabot-auto-merge.yml
+#
+# Auto-approves + queues auto-merge for Dependabot patch/minor bumps after
+# CI passes. Major bumps are left for a human.
+#
+# Default in v4: ON. To opt out, delete this file — Dependabot PRs still
+# flow into `next` (via dependabot.yml) but require a manual merge click.
+#
+# How v4 routing works:
+#   - dependabot.yml sets `target-branch: next`, so Dependabot opens PRs
+#     against `next`. This workflow auto-merges those PRs into `next` after
+#     CI; they batch into the next release like every other change.
+#   - For security advisories, hotfix-redirector.yml (release-flow-v4/)
+#     detects GHSA references in the PR body and retargets the PR from
+#     `next` → `hotfixes` *before* this workflow runs, so security updates
+#     auto-merge into the hotfix lane instead of waiting for the next batch.
+#
+# Required setup (one-time per repo):
+#   1. Settings → Pull Requests → "Allow auto-merge" → ON
+#      (enabled automatically by `release-flow-v4/v4-bootstrap.yml`)
+#   2. Branch protection on `next` and `hotfixes` with required CI status
+#      checks — the action refuses to merge into an unprotected branch.
+# Both are validated by the action; the workflow fails loudly if missing.
+name: 🤖 Dependabot Auto-Merge
+
+on:
+    pull_request:
+        types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    automerge:
+        # Pre-filter at workflow level so this doesn't spin up for every PR.
+        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        uses: CLDMV/.github/.github/workflows/reusable-dependabot-auto-merge.yml@v4
+        with:
+            bump_types: "patch,minor"
+            merge_method: "squash"
+            # also_for_actors: "renovate[bot]"   # extend if you adopt Renovate
+        secrets:
+            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

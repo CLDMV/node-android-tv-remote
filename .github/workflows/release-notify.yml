@@ -1,0 +1,37 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/release-notify.yml
+# @Date: 2026-07-19 00:00:00 -07:00 (1784523600)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/release-notify.yml
+#
+# Fires on `release: published` and dispatches the release announcement to
+# any enabled webhook. No config file — each channel is just a secret:
+#
+#   DISCORD_RELEASES_PUBLIC_WEBHOOK   / DISCORD_RELEASES_PRIVATE_WEBHOOK
+#   SLACK_RELEASES_PUBLIC_WEBHOOK     / SLACK_RELEASES_PRIVATE_WEBHOOK
+#   GENERIC_RELEASES_PUBLIC_WEBHOOK   / GENERIC_RELEASES_PRIVATE_WEBHOOK
+#
+# Visibility is determined automatically from the repo: GitHub `public` →
+# PUBLIC, `private` or `internal` → PRIVATE. Set the org-level secret in
+# CLDMV for the default URL; set a repo-level secret with the same name to
+# override (or to an empty string to mute that channel for this repo).
+name: 📣 Release Notify
+
+on:
+    release:
+        types: [published]
+
+permissions:
+    contents: read
+
+jobs:
+    notify:
+        # Defensive: skip untagged releases (mirrors Batch 1.2's filter)
+        if: github.event.release.tag_name != ''
+        uses: CLDMV/.github/.github/workflows/reusable-release-notifier.yml@v4
+        secrets: inherit

@@ -131,14 +131,27 @@ on:
         required: false
         default: true
 
-# Cancel superseded runs on feature branches; keep every master/main run as the
-# permanent green record. Keyed on github.ref so push and pull_request events
-# for the same branch share a group (the `if:` on the ci job already prevents
-# non-fork PR sync from running, but the shared group guards against edge
-# cases).
+# Concurrency policy, by context:
+#   - FEATURE branches / feature PRs → cancel superseded runs (per-ref group +
+#     cancel-in-progress): a newer push makes the older run redundant.
+#   - RELEASE-relevant contexts → NEVER superseded. Pushes to the release base
+#     branch (derived: the CLDMV_RELEASE_BASE var → the repo's default branch),
+#     to next/hotfixes, and the next/hotfixes → base release PRs each get a
+#     UNIQUE group per run (run_id appended), so nothing cancels them. During
+#     the burst of pushes a release makes to next/hotfixes (the feature squash,
+#     the post-hotfix base→next sync merge, the bot's `chore: bump version`),
+#     every run completes and posts a GREEN check instead of the earlier one
+#     being cancelled into a red X on the release PR. A bare
+#     `cancel-in-progress: false` is NOT enough — GitHub still cancels the
+#     middle PENDING run when a newer one queues; a unique group avoids it.
+# The base is NOT hardcoded to master/main — it derives the same way
+# resolve-release-base does (CLDMV_RELEASE_BASE override → default_branch).
+# next/hotfixes are the flow's fixed integration-branch names. github.head_ref
+# is set only on pull_request (the release PR's head → next/hotfixes);
+# github.ref carries the branch on push.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}${{ (github.ref == format('refs/heads/{0}', vars.CLDMV_RELEASE_BASE != '' && vars.CLDMV_RELEASE_BASE || github.event.repository.default_branch) || github.ref == 'refs/heads/next' || github.ref == 'refs/heads/hotfixes' || github.head_ref == 'next' || github.head_ref == 'hotfixes') && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
 
 # Workflow-level: matches the broadest write surface the called
 # `workflow-ci.yml` reaches across its branches:

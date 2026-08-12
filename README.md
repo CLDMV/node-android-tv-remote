@@ -77,7 +77,7 @@ npm install android-tv-remote
 
 ### Basic Usage
 
-```js
+````js
 ```js
 // ESM (Node.js with type: "module" in package.json)
 import createRemote from "android-tv-remote";
@@ -98,8 +98,9 @@ createRemote({ ip: "192.168.1.100" })
   .then(remote => remote.press.home())
   .then(() => remote.press.up())
   .then(() => remote.press.ok());
-```
-```
+````
+
+````
 
 ### Event-Driven Usage (Recommended)
 
@@ -133,7 +134,7 @@ remote.on("screencap-complete", (data) => {
 // Use the remote
 await remote.press.home();
 await remote.screencap({ filepath: './screenshot.png' });
-```
+````
 
 ### Async Initialization
 
@@ -148,11 +149,10 @@ remote.on("log", console.log);
 await remote.press.play();
 
 // Or use .then()
-createRemote({ ip: "192.168.1.100" })
-  .then(remote => {
-    remote.on("log", console.log);
-    return remote.press.play();
-  });
+createRemote({ ip: "192.168.1.100" }).then((remote) => {
+	remote.on("log", console.log);
+	return remote.press.play();
+});
 ```
 
 ### Screenshot Functionality
@@ -171,31 +171,31 @@ const stream = await remote.screencap();
 const resizedStream = await remote.screencap({ width: 1280, height: 720 });
 
 // Save screenshot to file (non-blocking)
-await remote.screencap({ filepath: './screenshot.png' });
+await remote.screencap({ filepath: "./screenshot.png" });
 
 // Resized screenshot saved to file
-await remote.screencap({ 
-  width: 640, 
-  height: 360, 
-  filepath: './thumbnail.png' 
+await remote.screencap({
+	width: 640,
+	height: 360,
+	filepath: "./thumbnail.png"
 });
 
 // Quick thumbnail (default 240px width)
 const thumbStream = await remote.thumbnail();
 
 // Custom thumbnail dimensions
-const customThumb = await remote.thumbnail({ 
-  width: 320, 
-  height: 180, 
-  filepath: './thumb.png' 
+const customThumb = await remote.thumbnail({
+	width: 320,
+	height: 180,
+	filepath: "./thumb.png"
 });
 
 // Access last screenshot data
-console.log('Last screenshot available:', !!remote.lastScreencapData);
+console.log("Last screenshot available:", !!remote.lastScreencapData);
 
 // Listen for screenshot events
-remote.on('screencap-complete', (data) => {
-  console.log(`Screenshot completed in ${data.timing.total}ms`);
+remote.on("screencap-complete", (data) => {
+	console.log(`Screenshot completed in ${data.timing.total}ms`);
 });
 ```
 
@@ -216,24 +216,24 @@ const isAwake = await remote.ensureAwake();
 
 // Configure optimal settings for remote control
 await remote.setSettings(); // Set optimal settings
-await remote.setSettings('get'); // Get current settings
+await remote.setSettings("get"); // Get current settings
 
 // Wait for device to finish booting (after reboot)
 await remote.waitBootComplete(60000); // 60 second timeout
 
 // Connection management
 await remote.connect();
-console.log('Connected:', remote.isConnected);
+console.log("Connected:", remote.isConnected);
 await remote.disconnect();
 
 // Listen for device management events
-remote.on('log', (data) => {
-  if (data.source === 'reboot') {
-    console.log(`Reboot: ${data.message}`);
-  }
-  if (data.source === 'ensureAwake') {
-    console.log(`Wake: ${data.message}`);
-  }
+remote.on("log", (data) => {
+	if (data.source === "reboot") {
+		console.log(`Reboot: ${data.message}`);
+	}
+	if (data.source === "ensureAwake") {
+		console.log(`Wake: ${data.message}`);
+	}
 });
 ```
 
@@ -251,35 +251,35 @@ await remote.keyboard.text("Hello World!");
 await remote.keyboard.text("user@example.com");
 
 // Individual character input
-await remote.keyboard.key.h();           // Types "h"
-await remote.keyboard.key.e();           // Types "e" 
-await remote.keyboard.key.l();           // Types "l"
-await remote.keyboard.key.l();           // Types "l"
-await remote.keyboard.key.o();           // Types "o"
+await remote.keyboard.key.h(); // Types "h"
+await remote.keyboard.key.e(); // Types "e"
+await remote.keyboard.key.l(); // Types "l"
+await remote.keyboard.key.l(); // Types "l"
+await remote.keyboard.key.o(); // Types "o"
 
 // Shifted characters (only available for keys that change when shifted)
-await remote.keyboard.key.shift.h();     // Types "H"
-await remote.keyboard.key.shift.one();   // Types "!"
+await remote.keyboard.key.shift.h(); // Types "H"
+await remote.keyboard.key.shift.one(); // Types "!"
 await remote.keyboard.key.shift.semicolon(); // Types ":"
 
 // Special characters and symbols
-await remote.keyboard.key.space();       // Types " "
+await remote.keyboard.key.space(); // Types " "
 await remote.keyboard.key.exclamation(); // Types "!"
-await remote.keyboard.key.at();          // Types "@"
-await remote.keyboard.key.hash();        // Types "#"
-await remote.keyboard.key.dollar();      // Types "$"
+await remote.keyboard.key.at(); // Types "@"
+await remote.keyboard.key.hash(); // Types "#"
+await remote.keyboard.key.dollar(); // Types "$"
 
 // Control keys
-await remote.keyboard.key.tab();         // Tab character
-await remote.keyboard.key.enter();       // Enter/Return
-await remote.keyboard.key.backspace();   // Backspace
+await remote.keyboard.key.tab(); // Tab character
+await remote.keyboard.key.enter(); // Enter/Return
+await remote.keyboard.key.backspace(); // Backspace
 
 // Using keycode fallback (when available for regular keys)
-await remote.keyboard.key.a.keycode();   // Sends keycode instead of character
+await remote.keyboard.key.a.keycode(); // Sends keycode instead of character
 
 // Note: Shift variants are only available for keys that actually change
-// when shifted (letters, numbers, and some symbols). Special characters 
-// like @, #, !, etc. don't have shift variants since they're already 
+// when shifted (letters, numbers, and some symbols). Special characters
+// like @, #, !, etc. don't have shift variants since they're already
 // the shifted form. Shift keys only support text input, not keycodes,
 // since Android ADB doesn't support sending multiple keycodes simultaneously.
 ```

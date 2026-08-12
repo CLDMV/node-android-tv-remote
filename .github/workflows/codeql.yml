@@ -30,41 +30,41 @@
 name: 🔍 CodeQL
 
 on:
-    push:
-        branches: [master, main]
-    # Same fork-PR consideration as ci.yml: pull_request fires for forks; SARIF
-    # upload to base-repo Security tab fails with read-only token. Acceptable —
-    # push-to-master analysis after merge catches anything missed. DO NOT use
-    # pull_request_target (runs base-repo workflow with secrets against fork
-    # code; dangerous).
-    pull_request:
-        types: [opened, synchronize, reopened, ready_for_review]
-        # Include the v4 integration branches (`next`, `hotfixes`) so feature
-        # and hotfix PRs trigger CodeQL. Without these, branch protection
-        # rulesets that require the CodeQL check on `next`/`hotfixes` will
-        # sit on "waiting for results" indefinitely. Branches that don't
-        # exist in a given repo simply never trigger the workflow — harmless
-        # for repos that haven't adopted the v4 staging-branch flow.
-        branches: [master, main, next, hotfixes]
-    schedule:
-        - cron: "37 14 * * 1" # weekly Monday 14:37 UTC; GitHub updates queries over time
+  push:
+    branches: [master, main]
+  # Same fork-PR consideration as ci.yml: pull_request fires for forks; SARIF
+  # upload to base-repo Security tab fails with read-only token. Acceptable —
+  # push-to-master analysis after merge catches anything missed. DO NOT use
+  # pull_request_target (runs base-repo workflow with secrets against fork
+  # code; dangerous).
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Include the v4 integration branches (`next`, `hotfixes`) so feature
+    # and hotfix PRs trigger CodeQL. Without these, branch protection
+    # rulesets that require the CodeQL check on `next`/`hotfixes` will
+    # sit on "waiting for results" indefinitely. Branches that don't
+    # exist in a given repo simply never trigger the workflow — harmless
+    # for repos that haven't adopted the v4 staging-branch flow.
+    branches: [master, main, next, hotfixes]
+  schedule:
+    - cron: "37 14 * * 1" # weekly Monday 14:37 UTC; GitHub updates queries over time
 
 permissions:
-    security-events: write
-    contents: read
-    actions: read
+  security-events: write
+  contents: read
+  actions: read
 
 concurrency:
-    group: codeql-${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
 
 jobs:
-    analyze:
-        uses: CLDMV/.github/.github/workflows/reusable-codeql.yml@v4
-        with:
-            languages: "javascript-typescript"
-            # Override defaults if needed:
-            # queries: "security-extended,security-and-quality"
-            # paths_ignore: "node_modules/,dist/,coverage/,**/test/**"
-            # config_file: ".github/codeql-config.yml"
-            # build_mode: "autobuild"
+  analyze:
+    uses: CLDMV/.github/.github/workflows/reusable-codeql.yml@v4
+    with:
+      languages: "javascript-typescript"
+      # Override defaults if needed:
+      # queries: "security-extended,security-and-quality"
+      # paths_ignore: "node_modules/,dist/,coverage/,**/test/**"
+      # config_file: ".github/codeql-config.yml"
+      # build_mode: "autobuild"

@@ -23,15 +23,15 @@
 name: 📣 Release Notify
 
 on:
-    release:
-        types: [published]
+  release:
+    types: [published]
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    notify:
-        # Defensive: skip untagged releases (mirrors Batch 1.2's filter)
-        if: github.event.release.tag_name != ''
-        uses: CLDMV/.github/.github/workflows/reusable-release-notifier.yml@v4
-        secrets: inherit
+  notify:
+    # Defensive: skip untagged releases (mirrors Batch 1.2's filter)
+    if: github.event.release.tag_name != ''
+    uses: CLDMV/.github/.github/workflows/reusable-release-notifier.yml@v4
+    secrets: inherit

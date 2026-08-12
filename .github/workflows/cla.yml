@@ -35,26 +35,26 @@
 name: 📜 CLA
 
 on:
-    pull_request_target:
-        types: [opened, synchronize, reopened, ready_for_review]
-    issue_comment:
-        types: [created]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 permissions:
-    contents: read
-    pull-requests: write
-    statuses: write
-    issues: write
+  contents: read
+  pull-requests: write
+  statuses: write
+  issues: write
 
 jobs:
-    cla:
-        uses: CLDMV/.github/.github/workflows/reusable-cla.yml@v4
-        with:
-            cla_version: "1.0"
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
-            CLA_BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_CLA_BOT_APP_CLIENT_ID }}
-            CLA_BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_CLA_BOT_APP_PRIVATE_KEY }}
-            TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
-            TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+  cla:
+    uses: CLDMV/.github/.github/workflows/reusable-cla.yml@v4
+    with:
+      cla_version: "1.0"
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      CLA_BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_CLA_BOT_APP_CLIENT_ID }}
+      CLA_BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_CLA_BOT_APP_PRIVATE_KEY }}
+      TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}

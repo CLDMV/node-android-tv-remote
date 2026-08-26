@@ -57,3 +57,5 @@ jobs:
       # Map your repo/org secrets to the expected names.
       BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
       BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      BOT_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      BOT_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}

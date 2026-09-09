@@ -32,48 +32,48 @@
 
 version: 2
 updates:
-    # GitHub Actions: keep pinned action SHAs / version tags fresh.
-    - package-ecosystem: "github-actions"
-      directory: "/"
-      target-branch: "next"
-      schedule:
-          interval: "weekly"
-      open-pull-requests-limit: 5
-      commit-message:
-          prefix: "deps"
-      # Grouped PRs cut noise: one PR per (security | patch | minor) bundle
-      # per week instead of N separate PRs. Security PRs still get retargeted
-      # to `hotfixes` by hotfix-redirector.yml when GHSA refs appear in the
-      # body — bundling N GHSA fixes into one PR is fine, the redirector
-      # only needs one match to retarget.
-      groups:
-          security:
-              applies-to: security-updates
-              patterns: ["*"]
-          patch:
-              applies-to: version-updates
-              update-types: ["patch"]
-          minor:
-              applies-to: version-updates
-              update-types: ["minor"]
+  # GitHub Actions: keep pinned action SHAs / version tags fresh.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "next"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    # Grouped PRs cut noise: one PR per (security | patch | minor) bundle
+    # per week instead of N separate PRs. Security PRs still get retargeted
+    # to `hotfixes` by hotfix-redirector.yml when GHSA refs appear in the
+    # body — bundling N GHSA fixes into one PR is fine, the redirector
+    # only needs one match to retarget.
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+      patch:
+        applies-to: version-updates
+        update-types: ["patch"]
+      minor:
+        applies-to: version-updates
+        update-types: ["minor"]
 
-    # NPM: package.json + package-lock.json updates.
-    # Delete this block if your repo isn't a Node project.
-    - package-ecosystem: "npm"
-      directory: "/"
-      target-branch: "next"
-      schedule:
-          interval: "weekly"
-      open-pull-requests-limit: 5
-      commit-message:
-          prefix: "deps"
-      groups:
-          security:
-              applies-to: security-updates
-              patterns: ["*"]
-          patch:
-              applies-to: version-updates
-              update-types: ["patch"]
-          minor:
-              applies-to: version-updates
-              update-types: ["minor"]
+  # NPM: package.json + package-lock.json updates.
+  # Delete this block if your repo isn't a Node project.
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "next"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+      patch:
+        applies-to: version-updates
+        update-types: ["patch"]
+      minor:
+        applies-to: version-updates
+        update-types: ["minor"]

@@ -21,46 +21,46 @@
 name: 🧾 Master Commit Audit
 
 on:
-    push:
-        branches: [master, main]
+  push:
+    branches: [master, main]
 
 permissions:
-    contents: read
-    issues: write
+  contents: read
+  issues: write
 
 jobs:
-    audit:
-        runs-on: ubuntu-latest
-        steps:
-            # Optional. Without these, the audit issue is filed by
-            # github-actions[bot]. With them, the issue is filed by your bot App.
-            - name: Create App token (falls back to GITHUB_TOKEN)
-              id: app-token
-              uses: CLDMV/.github/.github/actions/github/steps/create-app-token@v4
-              with:
-                  client_id: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-                  private_key: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
-              env:
-                  BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-                  BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      # Optional. Without these, the audit issue is filed by
+      # github-actions[bot]. With them, the issue is filed by your bot App.
+      - name: Create App token (falls back to GITHUB_TOKEN)
+        id: app-token
+        uses: CLDMV/.github/.github/actions/github/steps/create-app-token@v4
+        with:
+          client_id: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+          private_key: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+        env:
+          BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+          BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
 
-            - name: Audit commit subject
-              uses: CLDMV/.github/.github/actions/git/jobs/audit-commit-subject@v4
-              with:
-                  commit_sha: ${{ github.sha }}
-                  # allowed_patterns omitted -> inherit the canonical default from
-                  # audit-commit-subject (release/chore/merge patterns, including
-                  # the "release: vX.Y.Z - <description>" form). Customize only if
-                  # this repo's conventions genuinely differ — a hardcoded copy
-                  # here goes stale the next time the canonical default changes.
-                  # allowed_patterns: |
-                  #     ^release: v\d+\.\d+\.\d+( - .+?)?( \(#\d+\))?$
-                  #     ^chore(\([^)]+\))?: .+
-                  #     ^Merge pull request #\d+ from .+
-                  #     ^feat(\([^)]+\))?: .+
-                  # Canonical label names from CLDMV/.github's data/github-labels.json
-                  # (note the space after each colon). Replace with names that exist
-                  # in your repo's label catalog.
-                  issue_labels: "type: ci,priority: high"
-                  # issue_assignee: "shinrai"   # uncomment to auto-assign
-                  github_token: ${{ steps.app-token.outputs.token }}
+      - name: Audit commit subject
+        uses: CLDMV/.github/.github/actions/git/jobs/audit-commit-subject@v4
+        with:
+          commit_sha: ${{ github.sha }}
+          # allowed_patterns omitted -> inherit the canonical default from
+          # audit-commit-subject (release/chore/merge patterns, including
+          # the "release: vX.Y.Z - <description>" form). Customize only if
+          # this repo's conventions genuinely differ — a hardcoded copy
+          # here goes stale the next time the canonical default changes.
+          # allowed_patterns: |
+          #     ^release: v\d+\.\d+\.\d+( - .+?)?( \(#\d+\))?$
+          #     ^chore(\([^)]+\))?: .+
+          #     ^Merge pull request #\d+ from .+
+          #     ^feat(\([^)]+\))?: .+
+          # Canonical label names from CLDMV/.github's data/github-labels.json
+          # (note the space after each colon). Replace with names that exist
+          # in your repo's label catalog.
+          issue_labels: "type: ci,priority: high"
+          # issue_assignee: "shinrai"   # uncomment to auto-assign
+          github_token: ${{ steps.app-token.outputs.token }}

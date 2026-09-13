@@ -11,24 +11,24 @@
 name: 🔒 Dependency Review
 
 on:
-    pull_request:
-        types: [opened, synchronize, reopened, ready_for_review]
-        branches: [master, main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master, main]
 
 permissions:
-    contents: read
-    pull-requests: write
+  contents: read
+  pull-requests: write
 
 jobs:
-    review:
-        uses: CLDMV/.github/.github/workflows/reusable-dependency-review.yml@v4
-        with:
-            fail_on_severity: "moderate"
-            # Per-repo license policy override:
-            # deny_licenses: "AGPL-3.0,LGPL-3.0"   # block copyleft for an Apache-2.0 repo
-        # Bot App credentials. When set, the dependency-review PR comment is
-        # posted by the consumer's bot App instead of github-actions[bot].
-        # Both lines are optional; remove them to fall back to GITHUB_TOKEN.
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  review:
+    uses: CLDMV/.github/.github/workflows/reusable-dependency-review.yml@v4
+    with:
+      fail_on_severity: "moderate"
+      # Per-repo license policy override:
+      # deny_licenses: "AGPL-3.0,LGPL-3.0"   # block copyleft for an Apache-2.0 repo
+    # Bot App credentials. When set, the dependency-review PR comment is
+    # posted by the consumer's bot App instead of github-actions[bot].
+    # Both lines are optional; remove them to fall back to GITHUB_TOKEN.
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

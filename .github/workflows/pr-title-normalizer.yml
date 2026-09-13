@@ -26,20 +26,20 @@ name: 🏷️ PR Title Normalizer
 # only (NOT edited): a maintainer hand-editing the title must not kick off a
 # re-normalize loop.
 on:
-    pull_request_target:
-        types: [opened, synchronize]
+  pull_request_target:
+    types: [opened, synchronize]
 
 concurrency:
-    group: pr-title-normalizer-${{ github.event.pull_request.number }}
-    cancel-in-progress: true
+  group: pr-title-normalizer-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-    normalize:
-        permissions:
-            contents: read
-            pull-requests: write
-        uses: CLDMV/.github/.github/workflows/workflow-pr-title-normalizer.yml@v4
-        secrets:
-            # Map your repo/org secrets to the expected names.
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  normalize:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: CLDMV/.github/.github/workflows/workflow-pr-title-normalizer.yml@v4
+    secrets:
+      # Map your repo/org secrets to the expected names.
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

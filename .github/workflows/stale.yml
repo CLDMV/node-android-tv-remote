@@ -18,29 +18,29 @@
 name: 🍂 Stale Issues & PRs
 
 on:
-    schedule:
-        - cron: "13 5 * * *" # daily 05:13 UTC (off-the-hour to avoid GH cron stampede)
-    workflow_dispatch:
-        inputs:
-            dry_run:
-                description: "Preview only — no changes will be made"
-                type: boolean
-                default: false
+  schedule:
+    - cron: "13 5 * * *" # daily 05:13 UTC (off-the-hour to avoid GH cron stampede)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview only — no changes will be made"
+        type: boolean
+        default: false
 
 permissions:
-    issues: write
-    pull-requests: write
+  issues: write
+  pull-requests: write
 
 jobs:
-    sweep:
-        uses: CLDMV/.github/.github/workflows/reusable-stale.yml@v4
-        with:
-            dry_run: ${{ github.event.inputs.dry_run == 'true' }}
-            # Override timers if needed:
-            # days_before_issue_stale: 60
-            # days_before_issue_close: 14
-            # days_before_pr_stale: 30
-            # days_before_pr_close: 7
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  sweep:
+    uses: CLDMV/.github/.github/workflows/reusable-stale.yml@v4
+    with:
+      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
+      # Override timers if needed:
+      # days_before_issue_stale: 60
+      # days_before_issue_close: 14
+      # days_before_pr_stale: 30
+      # days_before_pr_close: 7
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

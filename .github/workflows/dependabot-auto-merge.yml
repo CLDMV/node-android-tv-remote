@@ -33,22 +33,22 @@
 name: 🤖 Dependabot Auto-Merge
 
 on:
-    pull_request:
-        types: [opened, reopened, synchronize, ready_for_review]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
-    contents: write
-    pull-requests: write
+  contents: write
+  pull-requests: write
 
 jobs:
-    automerge:
-        # Pre-filter at workflow level so this doesn't spin up for every PR.
-        if: github.event.pull_request.user.login == 'dependabot[bot]'
-        uses: CLDMV/.github/.github/workflows/reusable-dependabot-auto-merge.yml@v4
-        with:
-            bump_types: "patch,minor"
-            merge_method: "squash"
-            # also_for_actors: "renovate[bot]"   # extend if you adopt Renovate
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  automerge:
+    # Pre-filter at workflow level so this doesn't spin up for every PR.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    uses: CLDMV/.github/.github/workflows/reusable-dependabot-auto-merge.yml@v4
+    with:
+      bump_types: "patch,minor"
+      merge_method: "squash"
+      # also_for_actors: "renovate[bot]"   # extend if you adopt Renovate
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

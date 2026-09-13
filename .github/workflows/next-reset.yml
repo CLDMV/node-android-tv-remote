@@ -25,19 +25,19 @@
 name: ♻️ Next/Hotfixes Reset (v4)
 
 on:
-    push:
-        branches: [master, main]
+  push:
+    branches: [master, main]
 
 concurrency:
-    group: next-reset-${{ github.repository }}
-    cancel-in-progress: false
+  group: next-reset-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
-    sync:
-        permissions:
-            contents: write
-        uses: CLDMV/.github/.github/workflows/workflow-next-reset.yml@v4
-        secrets:
-            # Map your repo/org secrets to the expected names.
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  sync:
+    permissions:
+      contents: write
+    uses: CLDMV/.github/.github/workflows/workflow-next-reset.yml@v4
+    secrets:
+      # Map your repo/org secrets to the expected names.
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

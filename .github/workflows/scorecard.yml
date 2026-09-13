@@ -22,12 +22,12 @@
 name: 🔬 OpenSSF Scorecard
 
 on:
-    branch_protection_rule:
-    schedule:
-        - cron: "32 7 * * 1" # weekly Monday 07:32 UTC
-    push:
-        branches: [master, main]
-    workflow_dispatch:
+  branch_protection_rule:
+  schedule:
+    - cron: "32 7 * * 1" # weekly Monday 07:32 UTC
+  push:
+    branches: [master, main]
+  workflow_dispatch:
 
 # Caller must grant what the reusable needs — notably id-token: write for the
 # OpenSSF transparency-log publish.
@@ -51,11 +51,11 @@ on:
 # security-events: write back (job-scoped) if publish_results is set to false
 # instead.
 jobs:
-    analyze:
-        permissions:
-            id-token: write
-            contents: read
-            actions: read
-        uses: CLDMV/.github/.github/workflows/reusable-scorecard.yml@v4
-        with:
-            publish_results: true # set false for private repos / to skip the public badge
+  analyze:
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: CLDMV/.github/.github/workflows/reusable-scorecard.yml@v4
+    with:
+      publish_results: true # set false for private repos / to skip the public badge

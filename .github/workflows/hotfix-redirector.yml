@@ -32,20 +32,20 @@ name: 🔀 Hotfix PR Redirector (v4)
 # `opened` only (NOT `edited`): if a maintainer manually re-targets the PR, we
 # must not fight them by redirecting again.
 on:
-    pull_request_target:
-        types: [opened]
+  pull_request_target:
+    types: [opened]
 
 concurrency:
-    group: hotfix-redirector-${{ github.event.pull_request.number }}
-    cancel-in-progress: true
+  group: hotfix-redirector-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-    redirect:
-        permissions:
-            contents: write
-            pull-requests: write
-        uses: CLDMV/.github/.github/workflows/workflow-hotfix-redirector.yml@v4
-        secrets:
-            # Map your repo/org secrets to the expected names.
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  redirect:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: CLDMV/.github/.github/workflows/workflow-hotfix-redirector.yml@v4
+    secrets:
+      # Map your repo/org secrets to the expected names.
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

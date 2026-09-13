@@ -19,20 +19,20 @@ name: 👋 Welcome Contributor
 #   - We only call REST APIs to read prior interactions and post a comment
 # DO NOT add a checkout step or any step that executes PR-supplied content.
 on:
-    issues:
-        types: [opened]
-    pull_request_target:
-        types: [opened]
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
 
 permissions:
-    issues: write
-    pull-requests: write
+  issues: write
+  pull-requests: write
 
 jobs:
-    welcome:
-        uses: CLDMV/.github/.github/workflows/reusable-welcome.yml@v4
-        # Optional. Without these, the welcome comment is posted by
-        # github-actions[bot]. With these, it's posted by your CLDMV bot App.
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  welcome:
+    uses: CLDMV/.github/.github/workflows/reusable-welcome.yml@v4
+    # Optional. Without these, the welcome comment is posted by
+    # github-actions[bot]. With these, it's posted by your CLDMV bot App.
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

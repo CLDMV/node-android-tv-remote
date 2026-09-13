@@ -27,18 +27,18 @@ name: 🏷️ PR Labeler
 # DO NOT add a checkout step or any step that executes PR-supplied content
 # (build commands, scripts, test runs, etc.) to this workflow.
 on:
-    pull_request_target:
-        types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
-    contents: read
-    pull-requests: write
+  contents: read
+  pull-requests: write
 
 jobs:
-    label:
-        uses: CLDMV/.github/.github/workflows/reusable-pr-labeler.yml@v4
-        # Optional. Without these, labels are attributed to github-actions[bot].
-        # With these, they're attributed to your CLDMV bot App.
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  label:
+    uses: CLDMV/.github/.github/workflows/reusable-pr-labeler.yml@v4
+    # Optional. Without these, labels are attributed to github-actions[bot].
+    # With these, they're attributed to your CLDMV bot App.
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

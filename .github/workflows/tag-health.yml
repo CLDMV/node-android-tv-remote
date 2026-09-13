@@ -19,46 +19,46 @@
 name: 🏥 Tag Health
 
 on:
-    schedule:
-        # Weekly Sunday 04:04 UTC. Off-the-hour to dodge the GitHub :00-cron
-        # stampede; weekly cadence because tag drift accumulates slowly.
-        - cron: "4 4 * * 0"
-    workflow_dispatch:
-        inputs:
-            debug:
-                description: "Enable debug logging for troubleshooting"
-                type: boolean
-                required: false
-                default: false
-            create_documentation:
-                description: "Update VERSION_TAGS.md if rolling tags moved"
-                type: boolean
-                required: false
-                default: false
-            use_gpg:
-                description: "Enable GPG signing for any tags the sweep creates/recreates"
-                type: boolean
-                required: false
-                default: true
+  schedule:
+    # Weekly Sunday 04:04 UTC. Off-the-hour to dodge the GitHub :00-cron
+    # stampede; weekly cadence because tag drift accumulates slowly.
+    - cron: "4 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Enable debug logging for troubleshooting"
+        type: boolean
+        required: false
+        default: false
+      create_documentation:
+        description: "Update VERSION_TAGS.md if rolling tags moved"
+        type: boolean
+        required: false
+        default: false
+      use_gpg:
+        description: "Enable GPG signing for any tags the sweep creates/recreates"
+        type: boolean
+        required: false
+        default: true
 
 permissions:
-    contents: write
+  contents: write
 
 jobs:
-    health:
-        uses: CLDMV/.github/.github/workflows/reusable-tag-health.yml@v4
-        with:
-            debug: ${{ github.event.inputs.debug == 'true' }}
-            # Full unified sweep: validates, fixes bot signatures, fixes
-            # unsigned tags, recovers orphaned releases, relocates orphaned
-            # tags, and updates rolling major/minor refs.
-            run_unified_tag_health: true
-            create_documentation: ${{ github.event.inputs.create_documentation == 'true' }}
-            use_gpg: ${{ github.event.inputs.use_gpg != 'false' }}
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
-            TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
-            TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
-            GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
-            GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}
+  health:
+    uses: CLDMV/.github/.github/workflows/reusable-tag-health.yml@v4
+    with:
+      debug: ${{ github.event.inputs.debug == 'true' }}
+      # Full unified sweep: validates, fixes bot signatures, fixes
+      # unsigned tags, recovers orphaned releases, relocates orphaned
+      # tags, and updates rolling major/minor refs.
+      run_unified_tag_health: true
+      create_documentation: ${{ github.event.inputs.create_documentation == 'true' }}
+      use_gpg: ${{ github.event.inputs.use_gpg != 'false' }}
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+      GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}

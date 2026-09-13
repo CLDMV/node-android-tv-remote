@@ -44,63 +44,63 @@
 name: 🚀 v4 Bootstrap
 
 on:
-    workflow_dispatch:
-        inputs:
-            dry_run:
-                description: "Dry-run: preview every mutation without firing it. Default `true` — set to `false` to actually apply changes."
-                type: boolean
-                required: false
-                default: true
-            code_security:
-                description: "Code Security policy. off = disable. public-only = enable only if this repo is public (free). all = enable (paid on private)."
-                type: choice
-                required: false
-                default: "off"
-                options:
-                    - "off"
-                    - "public-only"
-                    - "all"
-            secret_protection:
-                description: "Secret Protection (scanning + push protection) policy. Same shape as code_security."
-                type: choice
-                required: false
-                default: "off"
-                options:
-                    - "off"
-                    - "public-only"
-                    - "all"
-            steps:
-                description: "Subset of phases to run, comma-separated."
-                required: false
-                default: "branches,settings,security,rulesets"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run: preview every mutation without firing it. Default `true` — set to `false` to actually apply changes."
+        type: boolean
+        required: false
+        default: true
+      code_security:
+        description: "Code Security policy. off = disable. public-only = enable only if this repo is public (free). all = enable (paid on private)."
+        type: choice
+        required: false
+        default: "off"
+        options:
+          - "off"
+          - "public-only"
+          - "all"
+      secret_protection:
+        description: "Secret Protection (scanning + push protection) policy. Same shape as code_security."
+        type: choice
+        required: false
+        default: "off"
+        options:
+          - "off"
+          - "public-only"
+          - "all"
+      steps:
+        description: "Subset of phases to run, comma-separated."
+        required: false
+        default: "branches,settings,security,rulesets"
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    bootstrap:
-        name: "🚀 Bootstrap v4 (this repo)"
-        runs-on: ubuntu-latest
-        steps:
-            - name: Create App token
-              id: app-token
-              # Full-permission App token — bootstrap needs administration:write
-              # for security toggles + ruleset import, plus contents:write for
-              # branch creation.
-              uses: CLDMV/.github/.github/actions/github/steps/create-app-token@v4
-              with:
-                  client_id: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-                  private_key: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
-              env:
-                  BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-                  BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  bootstrap:
+    name: "🚀 Bootstrap v4 (this repo)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create App token
+        id: app-token
+        # Full-permission App token — bootstrap needs administration:write
+        # for security toggles + ruleset import, plus contents:write for
+        # branch creation.
+        uses: CLDMV/.github/.github/actions/github/steps/create-app-token@v4
+        with:
+          client_id: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+          private_key: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+        env:
+          BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+          BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
 
-            - name: Bootstrap
-              uses: CLDMV/.github/.github/actions/github/jobs/org-bootstrap-repo@v4
-              with:
-                  # target_repo defaults to GITHUB_REPOSITORY (this repo).
-                  github_token: ${{ steps.app-token.outputs.token }}
-                  dry_run: ${{ github.event.inputs.dry_run }}
-                  steps: ${{ github.event.inputs.steps }}
-                  code_security: ${{ github.event.inputs.code_security }}
-                  secret_protection: ${{ github.event.inputs.secret_protection }}
+      - name: Bootstrap
+        uses: CLDMV/.github/.github/actions/github/jobs/org-bootstrap-repo@v4
+        with:
+          # target_repo defaults to GITHUB_REPOSITORY (this repo).
+          github_token: ${{ steps.app-token.outputs.token }}
+          dry_run: ${{ github.event.inputs.dry_run }}
+          steps: ${{ github.event.inputs.steps }}
+          code_security: ${{ github.event.inputs.code_security }}
+          secret_protection: ${{ github.event.inputs.secret_protection }}

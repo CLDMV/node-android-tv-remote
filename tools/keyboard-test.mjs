@@ -11,7 +11,7 @@
  *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
  */
 
-import createRemote from '../src/lib/android-tv-remote.mjs';
+import createRemote from "../src/lib/android-tv-remote.mjs";
 
 async function testKeyboardKeys() {
 	console.log("🔍 Testing Keyboard Keys Available...");

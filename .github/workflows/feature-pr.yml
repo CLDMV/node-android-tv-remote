@@ -26,34 +26,34 @@
 name: 🔀 Feature PR (v4)
 
 on:
-    push:
-        branches:
-            # CUSTOMIZE: prune this list to whichever branch prefixes your
-            # repo uses. Must align with the `case` statement in the reusable.
-            - 'feat/**'
-            - 'feature/**'
-            - 'fix/**'
-            - 'release/**'
-            - 'chore/**'
-            - 'refactor/**'
-            - 'docs/**'
-            - 'ci/**'
-            - 'perf/**'
-            - 'test/**'
-            - 'style/**'
-            - 'hotfix/**'
+  push:
+    branches:
+      # CUSTOMIZE: prune this list to whichever branch prefixes your
+      # repo uses. Must align with the `case` statement in the reusable.
+      - "feat/**"
+      - "feature/**"
+      - "fix/**"
+      - "release/**"
+      - "chore/**"
+      - "refactor/**"
+      - "docs/**"
+      - "ci/**"
+      - "perf/**"
+      - "test/**"
+      - "style/**"
+      - "hotfix/**"
 
 concurrency:
-    group: feature-pr-${{ github.repository }}-${{ github.ref }}
-    cancel-in-progress: false
+  group: feature-pr-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-    open-pr:
-        permissions:
-            contents: read
-            pull-requests: write
-        uses: CLDMV/.github/.github/workflows/workflow-feature-pr.yml@v4
-        secrets:
-            # Map your repo/org secrets to the expected names.
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+  open-pr:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: CLDMV/.github/.github/workflows/workflow-feature-pr.yml@v4
+    secrets:
+      # Map your repo/org secrets to the expected names.
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

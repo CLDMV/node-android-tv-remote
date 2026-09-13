@@ -39,6 +39,9 @@ concurrency:
   group: hotfix-redirector-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   redirect:
     permissions:
@@ -49,3 +52,12 @@ jobs:
       # Map your repo/org secrets to the expected names.
       BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
       BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      # GPG signing identity — REQUIRED if this repo redirects Dependabot
+      # SECURITY PRs: that path cherry-picks a commit onto `hotfixes`, and
+      # an unsigned commit is silently blocked by required-signatures (no
+      # failing check names the cause). The commit is signed and authored as
+      # this real-user bot account (the GPG key's owner), not the App bot.
+      BOT_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      BOT_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+      BOT_GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+      BOT_GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}

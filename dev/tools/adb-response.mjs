@@ -245,7 +245,7 @@ console.log("DEBUG: Comparison =", import.meta.url === `file://${process.argv[1]
 // Run the test
 console.log("Starting ADB response analysis test...");
 runADBResponseTest()
-	.then((results) => {
+	.then((_) => {
 		log("INFO", "Test completed successfully");
 		process.exit(0);
 	})

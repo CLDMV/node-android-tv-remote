@@ -48,8 +48,9 @@ async function main() {
 		console.error("IP address is required.");
 		process.exit(1);
 	}
+	let remote;
 	try {
-		const remote = await createRemote({ ip, port });
+		remote = await createRemote({ ip, port });
 		await remote.connect();
 		console.log(`Connected to ${ip}:${port}`);
 		// List of buttons to press (as method names on remote.press)
@@ -73,7 +74,7 @@ async function main() {
 		await remote.disconnect();
 		console.log("Test complete. Disconnected.");
 	} catch (err) {
-		if (remote.errorWithTime) remote.errorWithTime("Error:", err.message || err);
+		if (remote && remote.errorWithTime) remote.errorWithTime("Error:", err.message || err);
 		else console.error("Error:", err.message || err);
 		process.exit(1);
 	}

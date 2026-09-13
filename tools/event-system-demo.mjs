@@ -71,7 +71,7 @@ async function runDemo() {
 	try {
 		// This should emit an error event for unknown key
 		await remote.keyboard.key("nonexistentkey");
-	} catch (error) {
+	} catch (_) {
 		console.log("✓ Caught expected error for unknown key");
 	}
 

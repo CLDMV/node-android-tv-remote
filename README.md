@@ -77,7 +77,6 @@ npm install android-tv-remote
 
 ### Basic Usage
 
-````js
 ```js
 // ESM (Node.js with type: "module" in package.json)
 import createRemote from "android-tv-remote";
@@ -95,12 +94,10 @@ await remote.press.ok();
 
 // Or chain promises
 createRemote({ ip: "192.168.1.100" })
-  .then(remote => remote.press.home())
-  .then(() => remote.press.up())
-  .then(() => remote.press.ok());
-````
-
-````
+	.then((remote) => remote.press.home())
+	.then(() => remote.press.up())
+	.then(() => remote.press.ok());
+```
 
 ### Event-Driven Usage (Recommended)
 
@@ -133,8 +130,8 @@ remote.on("screencap-complete", (data) => {
 
 // Use the remote
 await remote.press.home();
-await remote.screencap({ filepath: './screenshot.png' });
-````
+await remote.screencap({ filepath: "./screenshot.png" });
+```
 
 ### Async Initialization
 

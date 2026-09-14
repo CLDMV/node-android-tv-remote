@@ -228,10 +228,11 @@ async function runTests() {
 	console.log("🧪 Enhanced Screencap Functionality Tests");
 	console.log("==========================================");
 
+	let remote;
 	try {
 		// Create a single remote instance to share across all tests
 		console.log("🔌 Creating remote connection...");
-		const remote = await createRemote(config);
+		remote = await createRemote(config);
 
 		// Add global error handler to prevent unhandled errors
 		remote.on("error", (errorData) => {
@@ -255,7 +256,7 @@ async function runTests() {
 
 		// Still try to clean up on error
 		try {
-			await remote.disconnect();
+			if (remote) await remote.disconnect();
 		} catch (disconnectError) {
 			console.error("Failed to disconnect:", disconnectError.message);
 		}

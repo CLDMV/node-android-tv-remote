@@ -21,7 +21,7 @@ function hasAdb() {
 	try {
 		execSync("adb version", { stdio: "ignore" });
 		return true;
-	} catch (e) {
+	} catch (_) {
 		return false;
 	}
 }

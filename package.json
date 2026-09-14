@@ -71,7 +71,7 @@
 	},
 	"devDependencies": {
 		"@cldmv/vitest-runner": "^1.2.0",
-		"@eslint/css": "^1.4.0",
+		"@eslint/css": "^2.0.0",
 		"@eslint/js": "^10.0.1",
 		"@eslint/json": "^2.0.1",
 		"@eslint/markdown": "^8.0.3",

@@ -55,23 +55,14 @@ async function tryInitADB(remote, maxAttempts = 10) {
 // --- TESTS ---
 (async function runTests() {
 	// Test: Should fail to connect to an unreachable device and retry
-	// const remote = createRemote({ ip: "10.42.0.210", port: 5555, autoConnect: true, quiet: false }); // unreachable IP
-	// const result = await tryInitADB(remote, 3);
-	// assert.strictEqual(result.success, false, "Should fail to connect to unreachable device");
-	// assert.ok(result.attempts >= 3, "Should attempt at least 3 times");
-	// console.log("Test passed: Retries and fails as expected for unreachable device.");
+	const remote = await createRemote({ ip: "10.42.0.210", port: 5555, autoConnect: true, quiet: false }); // unreachable IP
+	const result = await tryInitADB(remote, 3);
+	assert.strictEqual(result.success, false, "Should fail to connect to unreachable device");
+	assert.ok(result.attempts >= 3, "Should attempt at least 3 times");
+	console.log("Test passed: Retries and fails as expected for unreachable device.");
 
-	(async () => {
-		const remote = await createRemote({ ip: "10.42.0.210", port: 5555, autoConnect: true, quiet: false });
-		try {
-			await remote.initPromise;
-			console.log("initPromise resolved");
-		} catch (err) {
-			console.error("initPromise rejected:", err);
-		}
-	})();
 	// Optionally, test a reachable device if you have one:
-	// const remote2 = createRemote({ ip: "YOUR_DEVICE_IP", port: 5555, autoConnect: true, quiet: false });
+	// const remote2 = await createRemote({ ip: "YOUR_DEVICE_IP", port: 5555, autoConnect: true, quiet: false });
 	// const result2 = await tryInitADB(remote2, 2);
 	// assert.strictEqual(result2.success, true, "Should connect to reachable device");
 	// console.log("Test passed: Connects to reachable device.");

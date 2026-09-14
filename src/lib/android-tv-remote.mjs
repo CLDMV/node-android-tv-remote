@@ -141,7 +141,6 @@
 import adbkit from "@devicefarmer/adbkit";
 import { EventEmitter } from "events";
 import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
 import sharp from "sharp";
 // @devicefarmer/adbkit is plain CJS (`exports.default` / `exports.Adb` both
 // getter re-exports of the same class). Under plain Node's ESM/CJS interop,
@@ -1360,9 +1359,7 @@ export default async function createRemote(config) {
 					const backgroundOperation = (async () => {
 						try {
 							const fileOpStartTime = performance.now();
-							const writeStreamStartTime = performance.now();
 							const writeStream = createWriteStream(filepath);
-							const writeStreamTime = performance.now() - writeStreamStartTime;
 
 							// Process and save data, collecting it for lastScreencapData
 							const chunks = [];

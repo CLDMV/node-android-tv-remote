@@ -35,7 +35,8 @@ jobs:
     uses: CLDMV/.github/.github/workflows/reusable-bundle-size.yml@v4
     with:
       build_command: "npm run build:ci"
-      dist_paths: "src/**,scripts/**"
+      # Every pattern starts with `*` on purpose: the v4.29.2 measure action matches nothing for a bare top-level file and double-counts files when patterns have different roots.
+      dist_paths: "*index.mjs,*index.cjs,*src/**/*.mjs,*scripts/**"
       # warning_pct: 5
       # warning_bytes: 500
       # comment_mode: "update"

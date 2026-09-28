@@ -1,6 +1,8 @@
 #
 # @Project: @cldmv/node-android-tv-remote
 # @Filename: /.github/workflows/release-merge.yml
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
 # @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
@@ -55,6 +57,7 @@ on:
       - "🧪 CI Tests & Build"
       - "🔍 CodeQL"
       - "🔒 Dependency Review"
+      - "📊 Bundle Size"
       - "🚀 Next Release (v4)"
       - "🚑 Hotfixes Release (v4)"
       - "🌿 Branch Retention"

@@ -1,0 +1,71 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/member-auto-merge.yml
+# @Date: 2026-05-28 00:00:00 -07:00 (1780210800)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/member-auto-merge.yml
+#
+# Auto-enables GitHub's "auto-merge" flag on PRs opened by org members
+# against `next` or `hotfixes`, scoped to the standard branch-prefix
+# conventions (feat/, fix/, hotfix/, chore/, …). Removes the per-PR
+# friction of clicking "Enable auto-merge" — the merge still waits for
+# the ruleset's prerequisites (required approvals + CI green).
+#
+# This does NOT approve the PR. The human-review gate stays intact —
+# unlike `dependabot-auto-merge.yml` which bot-approves Dependabot bumps.
+#
+# Default in v4: ON. To opt out, delete this file — member PRs still
+# require a manual "Enable auto-merge" click but otherwise work normally.
+#
+# Required setup (one-time per repo, both done by `v4-bootstrap.yml`):
+#   1. Settings → Pull Requests → "Allow auto-merge" → ON
+#   2. A ruleset on next/hotfixes with required status checks AND a
+#      required-approving-review count ≥ 1 (the default v4 rulesets do
+#      both). The action refuses to enable auto-merge on a branch
+#      without required checks; the ruleset's approval requirement is
+#      what keeps a human in the loop after auto-merge is enabled.
+name: 🚀 Member Auto-Enable Auto-Merge
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Collapse a burst of pushes to one run per PR; the latest state always wins.
+concurrency:
+  group: member-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable:
+    # Pre-filter at workflow level so this doesn't spin up for every PR.
+    # The action repeats these checks for defense in depth (and clearer
+    # skip-reason logging), so trimming this `if` is fine; widening it
+    # is fine too — the action will skip anything that doesn't match.
+    if: |
+      github.event.pull_request.draft == false &&
+      (
+          github.event.pull_request.author_association == 'MEMBER' ||
+          github.event.pull_request.author_association == 'OWNER' ||
+          github.event.pull_request.author_association == 'COLLABORATOR'
+      ) &&
+      (
+          github.event.pull_request.base.ref == 'next' ||
+          github.event.pull_request.base.ref == 'hotfixes'
+      )
+    uses: CLDMV/.github/.github/workflows/reusable-member-auto-merge.yml@v4
+    with:
+      merge_method: "MERGE"
+      # CUSTOMIZE: tighten or widen as your repo requires.
+      # allowed_associations: "MEMBER,OWNER,COLLABORATOR"
+      # branch_prefixes: "feat,feature,fix,hotfix,chore,refactor,docs,ci,perf,test,style"
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

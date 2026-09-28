@@ -1,6 +1,6 @@
 #
-# @Project: @cldmv/.github
-# @Filename: /examples/individual-repo-workflows/release-flow-v4/feature-pr.yml
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/feature-pr.yml
 # @Author: Nate Corcoran <CLDMV>
 # @Email: <Shinrai@users.noreply.github.com>
 # @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
@@ -12,7 +12,7 @@
 # right integration branch on every push.
 #
 # Mapping (matches CLDMV/.github docs/conventions/branch-naming.md):
-#   feat/*, feature/*, fix/*, release/*, chore/*, refactor/*,
+#   feat/*, feature/*, fix/*, release/*, chore/*, deps/*, refactor/*,
 #   docs/*, ci/*, perf/*, test/*, style/*           → next
 #   hotfix/*                                         → hotfixes
 #
@@ -35,6 +35,7 @@ on:
       - "fix/**"
       - "release/**"
       - "chore/**"
+      - "deps/**"
       - "refactor/**"
       - "docs/**"
       - "ci/**"
@@ -47,6 +48,9 @@ concurrency:
   group: feature-pr-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   open-pr:
     permissions:
@@ -57,5 +61,10 @@ jobs:
       # Map your repo/org secrets to the expected names.
       BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
       BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      # Optional: only needed if you also use reusable-lint-format.yml /
+      # reusable-coverage-badge.yml (or otherwise sign a commit locally as
+      # this identity). Passed through so this PR's changelog body
+      # recognizes that identity as a bot instead of listing it as a
+      # contributor.
       BOT_NAME: ${{ secrets.CLDMV_BOT_NAME }}
       BOT_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}

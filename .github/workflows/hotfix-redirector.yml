@@ -1,6 +1,6 @@
 #
-# @Project: @cldmv/.github
-# @Filename: /examples/individual-repo-workflows/release-flow-v4/hotfix-redirector.yml
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/hotfix-redirector.yml
 # @Date: 2026-05-22 00:00:00 -07:00 (1779778800)
 # @Author: Nate Corcoran <CLDMV>
 # @Email: <Shinrai@users.noreply.github.com>

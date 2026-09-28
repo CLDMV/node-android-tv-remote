@@ -37,17 +37,21 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   automerge:
+    permissions:
+      contents: write
+      pull-requests: write
     # Pre-filter at workflow level so this doesn't spin up for every PR.
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     uses: CLDMV/.github/.github/workflows/reusable-dependabot-auto-merge.yml@v4
     with:
       bump_types: "patch,minor"
-      merge_method: "squash"
+      # merge_method defaults to "merge" — Dependabot PRs target next / hotfixes,
+      # whose rulesets are merge-only. Override only if your branches differ.
+      # merge_method: "merge"
       # also_for_actors: "renovate[bot]"   # extend if you adopt Renovate
     secrets:
       BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}

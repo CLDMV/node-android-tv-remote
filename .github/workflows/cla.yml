@@ -42,12 +42,14 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  statuses: write
-  issues: write
 
 jobs:
   cla:
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+      issues: write
     uses: CLDMV/.github/.github/workflows/reusable-cla.yml@v4
     with:
       cla_version: "1.0"

@@ -56,6 +56,9 @@ on:
         required: false
         default: "[]"
 
+permissions:
+  contents: read
+
 jobs:
   update-tags:
     # Skip release events fired without a tag_name (e.g. "untagged-<sha>" runs

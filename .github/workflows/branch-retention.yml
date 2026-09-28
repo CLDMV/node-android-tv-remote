@@ -26,11 +26,13 @@ on:
     branches: [master, main, next, hotfixes]
 
 permissions:
-  contents: write
-  pull-requests: read
+  contents: read
 
 jobs:
   retain:
+    permissions:
+      contents: write
+      pull-requests: read
     if: github.event.pull_request.merged == true
     uses: CLDMV/.github/.github/workflows/reusable-branch-retention.yml@v4
     secrets:

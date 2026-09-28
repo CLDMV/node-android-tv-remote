@@ -1,0 +1,40 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/pr-notify.yml
+# @Date: 2026-05-26 00:00:00 -07:00 (1780124400)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/pr-notify.yml
+#
+# Fires once per PR open. Targets ALL PRs in the repo (including the release
+# PRs opened by the release-flow workflows) — exactly one notification per
+# PR-open event.
+#
+# Channels are addressed by secret name; no config file. Set the secret to
+# enable the channel, leave it unset to skip:
+#
+#   DISCORD_PR_PUBLIC_WEBHOOK   / DISCORD_PR_PRIVATE_WEBHOOK
+#   SLACK_PR_PUBLIC_WEBHOOK     / SLACK_PR_PRIVATE_WEBHOOK
+#   GENERIC_PR_PUBLIC_WEBHOOK   / GENERIC_PR_PRIVATE_WEBHOOK
+#
+# Visibility is determined automatically from the repo: GitHub `public` →
+# PUBLIC, `private` or `internal` → PRIVATE. Set the org-level secret in
+# CLDMV for the default URL; set a repo-level secret with the same name to
+# override (or to an empty string to mute that channel for this repo).
+name: 📥 PR Notify
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  notify:
+    uses: CLDMV/.github/.github/workflows/reusable-pr-notifier.yml@v4
+    secrets: inherit

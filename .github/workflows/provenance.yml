@@ -1,0 +1,47 @@
+#
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/provenance.yml
+# @Date: 2026-09-05 00:00:00 -07:00 (1788591600)
+# @Author: Nate Corcoran <CLDMV>
+# @Email: <Shinrai@users.noreply.github.com>
+# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# SLSA build provenance (.intoto.jsonl) for this repo's published releases.
+# Decoupled from the publish workflow on purpose (see reusable-provenance.yml):
+# the SLSA generator is a reusable-workflow call and cannot carry
+# `continue-on-error`, so running it here — on its own `release: published`
+# trigger — keeps a provenance failure from ever turning a release run red
+# (issue #268). It re-packs the SAME build artifact the publish run uploaded, so
+# the signed subjects are byte-identical to what was published.
+#
+# Prereq: the org's allowed actions/reusable-workflows policy must permit
+# slsa-framework/*.
+name: 🔏 SLSA Provenance
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  provenance:
+    # Public, real releases only — SLSA provenance is recorded in the public
+    # Rekor transparency log. Skip drafts, prereleases, and private repos.
+    if: |
+      !github.event.repository.private &&
+      !github.event.release.draft &&
+      !github.event.release.prerelease
+    permissions:
+      actions: read # look up the publish run's build artifact
+      id-token: write # provenance signing (OIDC)
+      contents: write # upload the .intoto.jsonl release asset
+    uses: CLDMV/.github/.github/workflows/reusable-provenance.yml@v4
+    with:
+      tag: ${{ github.event.release.tag_name }}
+      # CUSTOMIZE: these MUST match your publish.yml so the re-packed
+      # tarballs are byte-identical to what was published.
+      package_name: "@cldmv/node-android-tv-remote"
+      node_version: "lts/*"
+      # Satellite packages (same value as publish.yml's extra_packages);
+      # empty disables. See docs/conventions/satellite-packages.md.
+      extra_packages: ""

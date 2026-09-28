@@ -42,10 +42,12 @@ on:
         default: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   health:
+    permissions:
+      contents: write
     uses: CLDMV/.github/.github/workflows/reusable-tag-health.yml@v4
     with:
       debug: ${{ github.event.inputs.debug == 'true' }}

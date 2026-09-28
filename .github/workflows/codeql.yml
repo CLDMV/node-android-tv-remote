@@ -9,6 +9,17 @@
 
 # Individual repo: .github/workflows/codeql.yml
 #
+# PRIVATE REPOS are skipped by DEFAULT: the bootstrap's `variables` phase
+# sets CLDMV_SKIP_CODE_SCANNING (this workflow then uploads an empty 0-alert
+# SARIF instead of analyzing) on every private repo not opted in, since Code
+# Security bills per active committer there. To actually scan a private
+# repo: pay for GitHub Code Security and add the repo to the `scan` list in
+# data/code-scanning-skips.json in CLDMV/.github. Public repos scan by
+# default (free); a public repo with nothing to analyze goes in that file's
+# `skip` section. Consumers outside CLDMV can pass `skip_code_scanning:
+# true` below instead. Do NOT just delete this file on a repo whose ruleset
+# requires code_scanning — the gate then waits forever.
+#
 # REQUIRED REPO SETTING — CodeQL must be in "Advanced" mode for this workflow
 # to upload SARIF. If the repo has CodeQL "Default setup" enabled (the
 # GitHub-managed alternative), upload runs fail with:
@@ -50,9 +61,7 @@ on:
     - cron: "37 14 * * 1" # weekly Monday 14:37 UTC; GitHub updates queries over time
 
 permissions:
-  security-events: write
   contents: read
-  actions: read
 
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
@@ -60,6 +69,10 @@ concurrency:
 
 jobs:
   analyze:
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
     uses: CLDMV/.github/.github/workflows/reusable-codeql.yml@v4
     with:
       languages: "javascript-typescript"

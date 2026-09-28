@@ -1,6 +1,6 @@
 #
-# @Project: @cldmv/.github
-# @Filename: /examples/individual-repo-workflows/release-flow-v4/pr-title-normalizer.yml
+# @Project: @cldmv/node-android-tv-remote
+# @Filename: /.github/workflows/pr-title-normalizer.yml
 # @Date: 2026-05-22 00:00:00 -07:00 (1779778800)
 # @Author: Nate Corcoran <CLDMV>
 # @Email: <Shinrai@users.noreply.github.com>
@@ -32,6 +32,9 @@ on:
 concurrency:
   group: pr-title-normalizer-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   normalize:

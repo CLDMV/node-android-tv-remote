@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/node-android-tv-remote
-# @Filename: /.github/workflows/ci.yml
-# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/ci.yml
+#	@Date: 2026-05-20T00:00:00-07:00 (1779260400)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:05-07:00 (1790968565)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/workflows/ci.yml
@@ -301,7 +305,21 @@ jobs:
   # automatically — no `pull_request` round-trip needed for non-fork
   # non-release PRs.
   required-check:
-    name: ✅ Required PR Check
+    # The name is conditional on purpose. On an in-repo feature PR the
+    # `pull_request` run skips this job (the push run owns the status), and
+    # a skipped job still posts a check run under its name. GitHub treats a
+    # SKIPPED required check as satisfied — so if the skipped job were named
+    # `✅ Required PR Check`, it would green-light the ruleset (and enable
+    # auto-merge) while the push run's real mirror hadn't been created yet
+    # (it only appears once `ci` finishes), letting a PR merge mid-test or
+    # even override a red result. An expression name keeps the skipped job
+    # off the required name: GitHub does not evaluate the name of a skipped
+    # job, so it shows up as the raw expression text (still not the
+    # required name), while every path that runs evaluates to
+    # `✅ Required PR Check`. The condition is written out anyway so the
+    # name stays correct if GitHub ever starts evaluating it, and must stay
+    # identical to the `if:` below.
+    name: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == true || github.event.pull_request.head.ref == 'next' || github.event.pull_request.head.ref == 'hotfixes') && '✅ Required PR Check' || '⏭️ Required PR Check (reported by the push run)' }}
     needs: ci
     # Mirror the `ci` job's gating exactly. The four cases that run:
     #   1. push events                                            (job needs CI run)
@@ -309,8 +327,8 @@ jobs:
     #   3. release PRs from `next` → master/main                  (push covers SHA but commit-gate skips chore-bump)
     #   4. release PRs from `hotfixes` → master/main              (same reason)
     # In-repo feature PRs targeting `next` / `hotfixes` skip on
-    # pull_request — push on the head branch already posted the status
-    # on the SHA, and mirroring here would overwrite it.
+    # pull_request — the push run on the head branch reports the status
+    # on the SHA. See the `name:` above for why the skipped job is renamed.
     if: |
       always() && (
         github.event_name != 'pull_request' ||

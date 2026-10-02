@@ -1,6 +1,6 @@
 {
 	"name": "@cldmv/node-android-tv-remote",
-	"version": "2.1.4",
+	"version": "2.1.5",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
 	"exports": {
@@ -21,7 +21,8 @@
 		"lint": "eslint --config eslint.config.mjs .",
 		"lint:fix": "eslint --config eslint.config.mjs . --fix",
 		"format": "prettier --config .prettierrc --write .",
-		"format:check": "prettier --config .prettierrc --check ."
+		"format:check": "prettier --config .prettierrc --check .",
+		"fix:headers": "fix-headers --config .configs/fix-headers.json"
 	},
 	"keywords": [
 		"android",
@@ -70,6 +71,8 @@
 		"node": ">=20.9.0"
 	},
 	"devDependencies": {
+		"@cldmv/configs": "^1.2.0",
+		"@cldmv/fix-headers": "^2.1.1",
 		"@cldmv/vitest-runner": "^1.2.0",
 		"@eslint/css": "^2.0.0",
 		"@eslint/js": "^10.0.1",

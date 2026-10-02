@@ -1,0 +1,67 @@
+#
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/dependabot-recreate.yml
+#	@Date: 2026-07-31T00:00:00-07:00 (1785481200)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:06-07:00 (1790968566)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/dependabot-recreate.yml
+#
+# Auto-fires `@dependabot recreate` when a Dependabot PR gets stuck in the
+# "edited by someone other than Dependabot" state. That state breaks
+# `@dependabot rebase` and — under a required-signed-commits ruleset — blocks
+# the PR with an unsigned commit. `recreate` rebuilds it as a fresh, signed
+# Dependabot commit that dependabot-auto-merge.yml then merges. See
+# reusable-dependabot-recreate.yml for the mechanics + the command-actor caveat.
+#
+# Default in v4: ON. Delete this file to opt out entirely; add a `no-recreate`
+# label to a specific PR to exempt just that one (e.g. one you've hand-edited
+# on purpose and don't want overwritten).
+#
+# Triggers:
+#   - issue_comment: catches Dependabot's own "can't rebase, use recreate" reply
+#     (Dependabot only comments back when a rebase FAILS — success is a silent
+#     👍 + force-push).
+#   - pull_request_target: proactive net for a Dependabot PR whose head commit
+#     is unverified. pull_request_target (not pull_request) is required so the
+#     job can read the bot-App secrets — Dependabot-triggered `pull_request`
+#     runs get a read-only token and no secrets. It is SAFE here: Dependabot PRs
+#     are same-repo branches (not forks), and this workflow never checks out or
+#     runs PR code — it only reads the PR and posts a comment via the API.
+name: 🔁 Dependabot Auto-Recreate
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  recreate:
+    # A) Dependabot replied that it can't rebase (the PR was edited), or
+    # B) a Dependabot PR opened/updated — the reusable then checks whether
+    #    its head commit is actually unverified before doing anything.
+    if: >-
+      (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.login == 'dependabot[bot]'
+        && contains(github.event.comment.body, 'edited by someone other than Dependabot'))
+      || (github.event_name == 'pull_request_target'
+        && github.event.pull_request.user.login == 'dependabot[bot]')
+    uses: CLDMV/.github/.github/workflows/reusable-dependabot-recreate.yml@v4
+    with:
+      skip_label: "no-recreate"
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

@@ -1,14 +1,16 @@
 /**
+ *
  *	@Project: @cldmv/node-android-tv-remote
- *	@Filename: /test/debug-chars.mjs
- *	@Date: 2025-10-16 07:32:01 -07:00 (1760625121)
- *	@Author: Nate Hyson <CLDMV>
+ *	@Filename: /dev/tools/debug-chars.mjs
+ *	@Date: 2025-10-16T07:32:01-07:00 (1760625121)
+ *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
- *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-16 07:49:12 -07:00 (1760626152)
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-02T12:16:10-07:00 (1790968570)
  *	-----
- *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
  */
 
 import keyboardKeys from "../../src/data/keyboard-keys.json" with { type: "json" };

@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/node-android-tv-remote
-# @Filename: /.github/workflows/v4-bootstrap.yml
-# @Date: 2026-05-26 00:00:00 -07:00 (1780124400)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/v4-bootstrap.yml
+#	@Date: 2026-05-26T00:00:00-07:00 (1779778800)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:09-07:00 (1790968569)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/workflows/v4-bootstrap.yml
@@ -72,7 +76,11 @@ on:
       steps:
         description: "Subset of phases to run, comma-separated."
         required: false
-        default: "branches,settings,security,rulesets"
+        default: "branches,settings,security,rulesets,variables"
+      code_scanning_config:
+        description: "Override for the variables-phase GHAS config (scan/skip lists): inline JSON or a workspace path. Empty = the data/code-scanning-skips.json bundled in CLDMV/.github — third-party orgs supply their own here."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -104,3 +112,4 @@ jobs:
           steps: ${{ github.event.inputs.steps }}
           code_security: ${{ github.event.inputs.code_security }}
           secret_protection: ${{ github.event.inputs.secret_protection }}
+          code_scanning_config: ${{ github.event.inputs.code_scanning_config }}

@@ -1,0 +1,104 @@
+#
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/release-merge.yml
+#	@Date: 2026-09-27T23:47:49-07:00 (1790578069)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:08-07:00 (1790968568)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#
+
+# Individual repo: .github/workflows/release-merge.yml
+#
+# v4 core (optional): squash-merge the persistent `next → master` release PR on
+# YOUR APPROVAL, via the REST merge API with the PR body as the commit message.
+#
+# Why not just click "Squash and merge"? The mobile Default path can land a
+# title-only commit (dropping the curated changelog + coverage), and the web/
+# mobile squash UI auto-appends its own `Co-authored-by:` list (not deduped, not
+# bot-stripped). An explicit-message API merge avoids both — the release commit
+# is exactly the curated PR body. It also merges only once EVERY check (required
+# AND non-required, e.g. the coverage badge and the release-PR body refresh) has
+# finished and passed, so the body it captures is never stale.
+#
+# How you use it: approve the release PR as you normally do. The merge fires when
+# CI is green — if you approve before CI finishes, it re-evaluates once CI
+# actually finishes and merges once the last check passes. Nothing auto-merges
+# without your approval.
+#
+# Re-evaluation uses `workflow_run`, not `check_suite` — GitHub does not send
+# `check_suite: completed` for a suite created by GitHub Actions itself, which
+# is every check your own ci.yml produces; it only fires for a suite created
+# by a third-party App. See CLDMV/.github#318: an approval given before CI
+# finished left a release PR stuck fully green with nothing re-firing the
+# merge check, because check_suite silently never fired for that case at all.
+# `workflow_run` is GitHub's documented replacement for exactly this pattern.
+#
+# IMPORTANT: the merge gate waits on EVERY check-run on the release PR's head
+# commit, from any workflow — so `workflows:` below must name every workflow in
+# your repo that puts a check on that commit, not just ci.yml. Only the one that
+# finishes LAST can see a fully green head; if it isn't listed, nothing re-fires
+# and the PR sits approved + green until you dispatch this workflow by hand.
+# CodeQL in particular routinely outlasts ci.yml (CLDMV/.github PR #322 stuck
+# exactly this way). The list below covers the standard v4 template set by their
+# template `name:`s — names are matched literally (not by filename), so fix any
+# you renamed, and add any extra PR-triggered workflow your repo has. Listing a
+# workflow your repo doesn't have is harmless. `branches:` limits re-fires to
+# runs on the integration branches, so feature-branch CI doesn't wake this up.
+#
+# Thin caller: all logic lives in the reusable, pinned at @v4.
+# NOTE: pull_request_review / workflow_run events run the copy of this file on
+# the DEFAULT branch, so it takes effect once it ships to master with a release.
+name: 🚦 Release Merge (v4)
+
+on:
+  pull_request_review:
+    types: [submitted] # your approval arms it
+  workflow_run: # re-evaluate as each check-producing workflow finishes — see #318
+    workflows: # ← must match your workflows' `name:`s — see IMPORTANT above
+      - "🧪 CI Tests & Build"
+      - "🔍 CodeQL"
+      - "🔒 Dependency Review"
+      - "📊 Bundle Size"
+      - "🚀 Next Release (v4)"
+      - "🚑 Hotfixes Release (v4)"
+      - "🌿 Branch Retention"
+      - "🏷️ PR Labeler"
+      - "🏷️ PR Title Normalizer"
+      - "👋 Welcome Contributor"
+      - "🔀 Hotfix PR Redirector (v4)"
+      - "🚀 Member Auto-Enable Auto-Merge"
+      - "🤖 Dependabot Auto-Merge"
+      - "🔁 Dependabot Auto-Recreate"
+      - "📜 CLA"
+      - "📥 PR Notify"
+    types: [completed]
+    branches: [next, hotfixes]
+  workflow_dispatch: # manual re-evaluation
+
+# Serialize per repo: each run re-resolves the release PR + re-gates the head,
+# so queue (don't cancel) to avoid racing a merge that's already in flight.
+# GitHub keeps one pending run per group and a newer arrival replaces it — that
+# is harmless, since every run re-reads approval + check state from the API.
+concurrency:
+  group: release-merge-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  merge:
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      statuses: read
+    uses: CLDMV/.github/.github/workflows/workflow-release-merge.yml@v4
+    secrets:
+      # Map your repo/org secrets to the expected names.
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}

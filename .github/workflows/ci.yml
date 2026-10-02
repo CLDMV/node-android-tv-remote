@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/node-android-tv-remote
-# @Filename: /.github/workflows/ci.yml
-# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/ci.yml
+#	@Date: 2026-05-20T00:00:00-07:00 (1779260400)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:05-07:00 (1790968565)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/workflows/ci.yml
@@ -54,15 +58,15 @@ on:
         required: false
         default: "lts/*"
       min_node_version:
-        description: "Minimum Node.js version for matrix testing (default: 22, oldest non-EOL LTS)"
+        description: "Minimum Node.js version for matrix testing (default: 22.12.0 — the floor vitest 5 actually runs on)"
         type: string
         required: false
-        default: "22"
+        default: "22.12.0"
       max_node_major:
-        description: "Override max Node.js major version (default: 24)"
+        description: "Max Node.js major version for the test matrix. Leave blank (the default) to inherit the CLDMV/.github reusable workflow's default; set a value only to pin/override for a specific run."
         type: string
         required: false
-        default: "24"
+        default: ""
       lts_only_matrix:
         description: "Only include even-numbered (LTS) Node.js major versions in the test matrix"
         type: boolean
@@ -78,6 +82,27 @@ on:
         type: string
         required: false
         default: "development"
+      # ── Lint & format (autofix) — all default to `--if-present` (no-op when absent)
+      format_command:
+        description: "Formatter that writes fixes (prettier --write)"
+        type: string
+        required: false
+        default: "npm run format --if-present"
+      lint_fix_command:
+        description: "Linter that writes safe fixes (eslint --fix)"
+        type: string
+        required: false
+        default: "npm run lint:fix --if-present"
+      lint_command:
+        description: "Lint check (no writes) — the authoritative lint gate"
+        type: string
+        required: false
+        default: "npm run lint --if-present"
+      format_check_command:
+        description: "Format check (no writes) — used on fork / integration branches"
+        type: string
+        required: false
+        default: "npm run format:check --if-present"
       # ── Coverage badge ───────────────────────────────────────────────
       enable_coverage_badge:
         description: "Run the coverage + badge-push job after CI passes"
@@ -161,11 +186,13 @@ concurrency:
 # inherit but never exercise the surface. The mirror job overrides to
 # `permissions: {}` since it's pure shell.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   ci:
+    permissions:
+      contents: write
+      pull-requests: write
     name: 🏗️ Continuous Integration
     # Run on pull_request when:
     #   - The PR is from a fork (push doesn't fire upstream for fork commits).
@@ -197,15 +224,14 @@ jobs:
         .gitignore
       debug: ${{ github.event.inputs.debug == 'true' }}
       node_version: ${{ github.event.inputs.node_version || 'lts/*' }}
-      min_node_version: ${{ github.event.inputs.min_node_version || '22' }}
-      max_node_major: ${{ github.event.inputs.max_node_major || '24' }}
-      # LTS-only matrix (even majors: 22, 24, …) on every event. Odd majors
-      # (23, 25, …) are non-LTS interim releases, and the native-binding test
+      min_node_version: ${{ github.event.inputs.min_node_version || '22.12.0' }}
+      max_node_major: ${{ github.event.inputs.max_node_major || '' }} # blank ⇒ inherit the CLDMV/.github reusable default
+      # LTS-only matrix (even majors: 20, 22, 24, …) on every event. Odd majors
+      # (21, 23, …) are non-LTS interim releases, and the native-binding test
       # toolchain (vitest 4 / rolldown / vite 8) excludes them via `engines`
-      # (`^20.0.0 || ^22.0.0 || >=24.0.0`), so a "full matrix" on them only
-      # re-discovers a known toolchain gap ("Cannot find native binding")
-      # rather than a real per-version regression. workflow_dispatch can
-      # still opt out (set false).
+      # (`^20.19.0 || >=22.12.0`), so a "full matrix" on them only re-discovers a
+      # known toolchain gap ("Cannot find native binding") rather than a real
+      # per-version regression. workflow_dispatch can still opt out (set false).
       lts_only_matrix: ${{ github.event.inputs.lts_only_matrix != 'false' }}
       package_manager: ${{ github.event.inputs.package_manager || 'npm' }}
       test_command: "npm test" # Use defaults: NODE_ENV=development, NODE_OPTIONS=--conditions=development
@@ -213,6 +239,17 @@ jobs:
       # test_command: "NODE_ENV=test npm test"  # Override NODE_ENV only
       # test_command: "NODE_ENV=test NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override both
       test_environment: ${{ github.event.inputs.test_environment || 'development' }} # Alternative to setting in test_command
+      # ── Lint & format (autofix gate) ──────────────────────────────────
+      # The lint-format job applies safe fixes (prettier --write, eslint --fix)
+      # and commits them back on internal branches; on fork PRs / integration
+      # branches it runs the check variants and fails with a fix hint. Every
+      # command uses `--if-present`, so a repo with no such script is a graceful
+      # no-op. Add the scripts to package.json to opt in; override a command for
+      # a monorepo-aware invocation; or set empty ("") to disable that phase.
+      format_command: ${{ github.event.inputs.format_command || 'npm run format --if-present' }}
+      lint_fix_command: ${{ github.event.inputs.lint_fix_command || 'npm run lint:fix --if-present' }}
+      lint_command: ${{ github.event.inputs.lint_command || 'npm run lint --if-present' }}
+      format_check_command: ${{ github.event.inputs.format_check_command || 'npm run format:check --if-present' }}
       build_command: "echo '✓ no build step'"
       skip_performance_tests: false
       skip_matrix_tests: false
@@ -268,7 +305,21 @@ jobs:
   # automatically — no `pull_request` round-trip needed for non-fork
   # non-release PRs.
   required-check:
-    name: ✅ Required PR Check
+    # The name is conditional on purpose. On an in-repo feature PR the
+    # `pull_request` run skips this job (the push run owns the status), and
+    # a skipped job still posts a check run under its name. GitHub treats a
+    # SKIPPED required check as satisfied — so if the skipped job were named
+    # `✅ Required PR Check`, it would green-light the ruleset (and enable
+    # auto-merge) while the push run's real mirror hadn't been created yet
+    # (it only appears once `ci` finishes), letting a PR merge mid-test or
+    # even override a red result. An expression name keeps the skipped job
+    # off the required name: GitHub does not evaluate the name of a skipped
+    # job, so it shows up as the raw expression text (still not the
+    # required name), while every path that runs evaluates to
+    # `✅ Required PR Check`. The condition is written out anyway so the
+    # name stays correct if GitHub ever starts evaluating it, and must stay
+    # identical to the `if:` below.
+    name: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == true || github.event.pull_request.head.ref == 'next' || github.event.pull_request.head.ref == 'hotfixes') && '✅ Required PR Check' || '⏭️ Required PR Check (reported by the push run)' }}
     needs: ci
     # Mirror the `ci` job's gating exactly. The four cases that run:
     #   1. push events                                            (job needs CI run)
@@ -276,8 +327,8 @@ jobs:
     #   3. release PRs from `next` → master/main                  (push covers SHA but commit-gate skips chore-bump)
     #   4. release PRs from `hotfixes` → master/main              (same reason)
     # In-repo feature PRs targeting `next` / `hotfixes` skip on
-    # pull_request — push on the head branch already posted the status
-    # on the SHA, and mirroring here would overwrite it.
+    # pull_request — the push run on the head branch reports the status
+    # on the SHA. See the `name:` above for why the skipped job is renamed.
     if: |
       always() && (
         github.event_name != 'pull_request' ||
@@ -285,7 +336,13 @@ jobs:
         github.event.pull_request.head.ref == 'next' ||
         github.event.pull_request.head.ref == 'hotfixes'
       )
-    runs-on: ubuntu-latest
+    # Match the reusable's runner routing (workflow-ci.yml): private CLDMV
+    # repos run on self-hosted cldmv-runners (GitHub-hosted Actions budget is
+    # private-metered and exhausted), public repos use free GitHub-hosted, and
+    # RUNS_ON_DEFAULT overrides. Hardcoding ubuntu-latest here made this
+    # required check fail to provision a runner on private repos once the
+    # reusable moved its own jobs to cldmv-runners in v4.19.1 (see #208).
+    runs-on: ${{ vars.RUNS_ON_DEFAULT != '' && vars.RUNS_ON_DEFAULT || ((github.repository_owner == 'CLDMV' && github.event.repository.private) && 'cldmv-runners' || 'ubuntu-latest') }}
     # Pure shell mirror — no GitHub API access. Strip the workflow's
     # write defaults to zero for this job.
     permissions: {}

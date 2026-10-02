@@ -1,14 +1,16 @@
 /**
+ *
  *	@Project: @cldmv/node-android-tv-remote
  *	@Filename: /tools/screencap/no-resize-speed-test.mjs
- *	@Date: 2025-10-15 18:05:25 -07:00 (1760576725)
- *	@Author: Nate Hyson <CLDMV>
+ *	@Date: 2025-10-15T18:05:25-07:00 (1760576725)
+ *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
- *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-15 21:50:14 -07:00 (1760590214)
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-02T12:16:20-07:00 (1790968580)
  *	-----
- *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
  */
 
 import { createRemote } from "../../index.mjs";

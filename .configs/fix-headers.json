@@ -1,0 +1,3 @@
+{
+	"extends": "@cldmv/configs/fix-headers.json"
+}

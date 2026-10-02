@@ -1,4 +1,19 @@
 /**
+ *
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /tools/dual/spawn-dual-servers.mjs
+ *	@Date: 2026-08-02T23:41:58-07:00 (1785739318)
+ *	@Author: Nate Corcoran <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-02T12:16:19-07:00 (1790968579)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
+ */
+
+/**
  * Dual server spawner - simulates two independent server processes
  * This script spawns two separate Node.js processes to test concurrent device management.
  *

@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/node-android-tv-remote
-# @Filename: /.github/workflows/publish.yml
-# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/publish.yml
+#	@Date: 2026-05-20T00:00:00-07:00 (1779260400)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:07-07:00 (1790968567)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/workflows/publish.yml
@@ -60,15 +64,15 @@ on:
         required: false
         default: true
       min_node_version:
-        description: "Minimum Node.js version for matrix testing (enables matrix when set)"
+        description: "Minimum Node.js version for matrix testing (enables matrix when set; default: 22.12.0 — the floor vitest 5 actually runs on)"
         type: string
         required: false
-        default: "22"
+        default: "22.12.0"
       max_node_major:
-        description: "Override max Node.js major version (default: 24)"
+        description: "Max Node.js major version for the test matrix. Leave blank (the default) to inherit the CLDMV/.github reusable workflow's default; set a value only to pin/override for a specific run."
         type: string
         required: false
-        default: "24"
+        default: ""
       use_gpg:
         description: "Enable GPG signing (if GPG secrets provided)"
         type: boolean
@@ -81,6 +85,9 @@ on:
 concurrency:
   group: publish-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   publish-package:
@@ -101,14 +108,28 @@ jobs:
       publish_to_github_packages: ${{ github.event.inputs.publish_to_github_packages != 'false' }}
       publish_command: ""
       github_packages_publish_command: ""
-      min_node_version: ${{ github.event.inputs.min_node_version || '22' }}
-      max_node_major: ${{ github.event.inputs.max_node_major || '24' }}
+      min_node_version: ${{ github.event.inputs.min_node_version || '22.12.0' }}
+      max_node_major: ${{ github.event.inputs.max_node_major || '' }} # blank ⇒ inherit the CLDMV/.github reusable default
       test_command: "npm test" # Use defaults: NODE_ENV=development, NODE_OPTIONS=--conditions=development
       # test_command: "NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override NODE_OPTIONS only
       # test_command: "NODE_ENV=test npm test"  # Override NODE_ENV only
       # test_command: "NODE_ENV=test NODE_OPTIONS='--conditions=slothlet-dev' npm test"  # Override both
       test_environment: ${{ github.event.inputs.test_environment || 'development' }} # Alternative to setting in test_command
       build_command: "npm run build:ci"
+      # --- Satellite packages (optional) ----------------------------------------
+      # Publish extra packages carved from this build's output (e.g. locale JSON,
+      # generated types) at the SAME version/commit as the core, each with its own
+      # @scope/name@version tag + GitHub Release. Uncomment to opt in.
+      #   extra_packages: a JSON [{ name, dir }] array, OR a glob (single '*' in the
+      #   final path segment, e.g. "dist-packages/*"). Empty = disabled.
+      #   build_subpackages_command: runs after build_command to produce
+      #   dist-packages/<name>/ — omit if build_command already does the carve.
+      # First publish of each new @scope/name needs a one-time token publish +
+      # trusted-publisher setup. Full details + the contract:
+      # docs/conventions/satellite-packages.md
+      # extra_packages: "dist-packages/*"
+      # build_subpackages_command: "npm run build:subpackages"
+      # --------------------------------------------------------------------------
       is_prerelease: false
       release_source_only: false
       create_documentation: true

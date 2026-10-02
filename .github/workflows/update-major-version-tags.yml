@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/node-android-tv-remote
-# @Filename: /.github/workflows/update-major-version-tags.yml
-# @Date: 2026-05-20 00:00:00 -07:00 (1779606000)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/update-major-version-tags.yml
+#	@Date: 2026-05-20T00:00:00-07:00 (1779260400)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:08-07:00 (1790968568)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/workflows/update-major-version-tags.yml
@@ -55,6 +59,9 @@ on:
         description: "JSON array of tag patterns to exclude"
         required: false
         default: "[]"
+
+permissions:
+  contents: read
 
 jobs:
   update-tags:

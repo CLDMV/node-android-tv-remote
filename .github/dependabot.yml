@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/.github
-# @Filename: /examples/individual-repo-workflows/automation/dependabot.yml
-# @Date: 2026-05-26 00:00:00 -07:00 (1782460800)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/dependabot.yml
+#	@Date: 2026-05-26T00:00:00-07:00 (1779778800)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:05-07:00 (1790968565)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/dependabot.yml
@@ -68,6 +72,34 @@ updates:
     commit-message:
       prefix: "deps"
     groups:
+      # vitest and @vitest/coverage-v8 (and other @vitest/* packages) peer
+      # each other EXACTLY, so a partial bump (e.g. vitest to 5.0.0 while
+      # @vitest/coverage-v8 stays 4.1.11) breaks `npm ci` with an ERESOLVE.
+      # Bump the whole family together in one PR so the exact-peer
+      # versions never diverge. Must come before security/patch/minor
+      # below — Dependabot assigns each update to the FIRST matching
+      # group, and this one has no applies-to restriction so it always
+      # wins for vitest-family packages regardless of update type.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+      # @eslint/js peers eslint with a major-locked range ("^10.0.0"), so a
+      # future eslint major bump without @eslint/js moving too would hit
+      # the same npm ci ERESOLVE class as the vitest/coverage-v8 split.
+      # @cldmv/eslint-plugin-jsonv doesn't peer eslint directly but is
+      # bundled here to keep the lint-config family moving together.
+      eslint:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "@cldmv/eslint-plugin-*"
+      # @cldmv/prettier-plugin-jsonv peers prettier with a major-locked
+      # range ("^3.0.0") — same reasoning as the eslint group above.
+      prettier:
+        patterns:
+          - "prettier"
+          - "@cldmv/prettier-plugin-*"
       security:
         applies-to: security-updates
         patterns: ["*"]

@@ -1,10 +1,14 @@
 #
-# @Project: @cldmv/node-android-tv-remote
-# @Filename: /.github/workflows/scorecard.yml
-# @Date: 2026-07-19 00:00:00 -07:00 (1784523600)
-# @Author: Nate Corcoran <CLDMV>
-# @Email: <Shinrai@users.noreply.github.com>
-# @Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+#	@Project: @cldmv/node-android-tv-remote
+#	@Filename: /.github/workflows/scorecard.yml
+#	@Date: 2026-07-19T00:00:00-07:00 (1784444400)
+#	@Author: Nate Corcoran <CLDMV>
+#	@Email: <Shinrai@users.noreply.github.com>
+#	-----
+#	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+#	@Last modified time: 2026-10-02T12:16:08-07:00 (1790968568)
+#	-----
+#	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
 
 # Individual repo: .github/workflows/scorecard.yml
@@ -14,11 +18,6 @@
 # scorecard-action version live in reusable-scorecard.yml@v4, so the action
 # version can't drift in this copy (it just calls the org reusable). Triggers
 # stay here, per OpenSSF's recommended setup.
-#
-# NOTE: this MUST stay a thin caller. OSSF Scorecard's publish step verifies
-# the analysis job and allows only a fixed set of steps; the inline form used
-# our checkout-code composite, which trips "job has unallowed step" -> publish
-# HTTP 400. The reusable uses actions/checkout directly, which passes.
 name: 🔬 OpenSSF Scorecard
 
 on:
@@ -32,8 +31,8 @@ on:
 # Caller must grant what the reusable needs — notably id-token: write for the
 # OpenSSF transparency-log publish.
 #
-# No workflow-level `permissions:` here — grant on the `analyze` job below
-# instead. scorecard-action's publish step verifies that write permissions
+# Keep the workflow-level grant READ-ONLY (contents: read) and grant every
+# WRITE on the `analyze` job instead. scorecard-action's publish step verifies that write permissions
 # were granted JOB-scoped, not workflow-wide (matching OSSF's own example:
 # https://github.com/ossf/scorecard-action#example-workflow). A workflow-level
 # grant satisfies GitHub's own reusable-workflow permission rules fine, but
@@ -47,9 +46,13 @@ on:
 # tampered with results before they hit the public transparency log). That
 # trade-off means the reusable's own SARIF-to-Security-tab upload step has no
 # permission to run in this configuration; the public OpenSSF badge is the
-# thing actually enabled here, so this repo takes that trade-off. Only add
-# security-events: write back (job-scoped) if publish_results is set to false
-# instead.
+# thing this default enables, so consumers take that trade-off by default.
+# Only add security-events: write back (job-scoped) if publish_results is set
+# to false instead (SARIF-to-Security-tab upload, no public badge).
+
+permissions:
+  contents: read
+
 jobs:
   analyze:
     permissions:
@@ -58,4 +61,4 @@ jobs:
       actions: read
     uses: CLDMV/.github/.github/workflows/reusable-scorecard.yml@v4
     with:
-      publish_results: true # set false for private repos / to skip the public badge
+      publish_results: true # set false to skip the public badge in favor of SARIF-to-Security-tab. Private repos need not bother: every scorecard job auto-skips there (OpenSSF cannot publish private repos, so the run would only burn paid minutes).

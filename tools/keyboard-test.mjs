@@ -1,14 +1,16 @@
 /**
+ *
  *	@Project: @cldmv/node-android-tv-remote
- *	@Filename: /test/keyboard-test.mjs
- *	@Date: 2025-10-16 07:26:36 -07:00 (1760624796)
- *	@Author: Nate Hyson <CLDMV>
+ *	@Filename: /tools/keyboard-test.mjs
+ *	@Date: 2025-10-16T07:26:36-07:00 (1760624796)
+ *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
- *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-16 07:27:00 -07:00 (1760624820)
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-02T12:16:20-07:00 (1790968580)
  *	-----
- *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
  */
 
 import createRemote from "../src/lib/android-tv-remote.mjs";

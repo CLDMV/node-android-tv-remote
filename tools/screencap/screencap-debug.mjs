@@ -1,14 +1,16 @@
 /**
+ *
  *	@Project: @cldmv/node-android-tv-remote
  *	@Filename: /tools/screencap/screencap-debug.mjs
- *	@Date: 2025-10-15 17:29:39 -07:00 (1760574579)
- *	@Author: Nate Hyson <CLDMV>
+ *	@Date: 2025-10-15T17:29:39-07:00 (1760574579)
+ *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
- *	@Last modified by: Nate Hyson <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2025-10-15 21:50:08 -07:00 (1760590208)
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-02T12:16:21-07:00 (1790968581)
  *	-----
- *	@Copyright: Copyright (c) 2013-2025 Catalyzed Motivation Inc. All rights reserved.
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
  */
 
 import { createRemote } from "../../index.mjs";

@@ -1,6 +1,6 @@
 {
 	"name": "@cldmv/node-android-tv-remote",
-	"version": "2.1.6",
+	"version": "2.1.7",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
 	"exports": {
@@ -14,9 +14,10 @@
 		"setup-device": "node scripts/setup-device.mjs",
 		"build": "echo '✓ no build step'",
 		"build:ci": "echo '✓ no build step'",
-		"test": "node tests/run-vitest.mjs",
+		"test": "node tests/run-vitest.mjs && npm run test:cjs",
+		"test:cjs": "node --test tests/cjs/entry.test.cjs",
 		"test:watch": "vitest --config .configs/vitest.config.mjs",
-		"coverage": "node tests/run-vitest.mjs --coverage-quiet",
+		"coverage": "node tests/run-vitest.mjs --coverage-quiet && npm run test:cjs",
 		"ci:coverage": "npm run coverage",
 		"lint": "eslint --config eslint.config.mjs .",
 		"lint:fix": "eslint --config eslint.config.mjs . --fix",

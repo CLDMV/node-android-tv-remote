@@ -37,6 +37,8 @@ test("require() returns the same createRemote object as import", async () => {
 	assert.equal(createRemote, esm.default);
 	assert.equal(createRemote.createRemote, esm.default);
 	assert.equal(createRemote.default, esm.default);
+	assert.equal(typeof createRemote.createAndroidTVRemote, "function");
+	assert.equal(createRemote.createAndroidTVRemote, esm.createAndroidTVRemote);
 });
 
 test("require() fails with a clear message where Node.js has no require(esm)", () => {

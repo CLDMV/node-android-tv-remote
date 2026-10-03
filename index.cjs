@@ -34,8 +34,9 @@ if (!process.features?.require_module) {
 	throw error;
 }
 
-const { default: createRemote } = require("./index.mjs");
+const { default: createRemote, createAndroidTVRemote } = require("./index.mjs");
 
 module.exports = createRemote;
 module.exports.createRemote = createRemote;
+module.exports.createAndroidTVRemote = createAndroidTVRemote;
 module.exports.default = createRemote;

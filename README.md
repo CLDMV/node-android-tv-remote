@@ -456,7 +456,7 @@ npm run format    # Prettier
 
 [![npm license]][npm_license_url]
 
-MIT © Shinrai / CLDMV
+Apache-2.0 © Shinrai / CLDMV. See [LICENSE](https://github.com/CLDMV/node-android-tv-remote/blob/master/LICENSE) for the full text.
 
 [npm version]: https://img.shields.io/npm/v/%40cldmv%2Fnode-android-tv-remote.svg?style=for-the-badge&logo=npm&logoColor=white&labelColor=CB3837
 [npm_version_url]: https://www.npmjs.com/package/@cldmv/node-android-tv-remote

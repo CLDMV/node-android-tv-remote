@@ -14,19 +14,20 @@ Every remote is an event source: operations report through structured `log` even
 
 ## ✨ What's New
 
-### Latest: v2.1.7 (October 2026)
+### Latest: v2.1.8 (October 2026)
 
-- **CommonJS entry fixed** — `require("@cldmv/node-android-tv-remote")` now loads the ESM build directly through Node's synchronous `require(esm)` and exports `createAndroidTVRemote` alongside `createRemote`, so `require()` and `import` expose the same factories. On Node.js without `require(esm)` (older than ^20.19.0 / >=22.12.0) it throws a clear `ERR_REQUIRE_ESM` that points to `import()`, instead of a bare loader error (#39).
-- [View full v2.1.7 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.7.md)
+- **Independent remotes, and no crash on an unheard error** — each remote now has its own event emitter, so two TVs no longer receive each other's events. An `error` with no listener is logged (a `log` event with level `"error"`, and `NODE_DEBUG=android-tv-remote`) instead of thrown, while the failing call still rejects ([#46](https://github.com/CLDMV/node-android-tv-remote/pull/46)).
+- **`npm run setup-device` works again** — the script, broken since v2.1.0, now runs the setup steps through the v2 remote ([#45](https://github.com/CLDMV/node-android-tv-remote/pull/45)). The package is also relicensed under Apache-2.0 ([#41](https://github.com/CLDMV/node-android-tv-remote/pull/41)).
+- [View full v2.1.8 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md)
 
 ### Recent Releases
 
+- **v2.1.7** (October 2026) — CommonJS entry loads the ESM build directly, fails clearly without `require(esm)`, and exports `createAndroidTVRemote` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.7.md))
 - **v2.1.6** (October 2026) — CI only: the in-repo PR mirror job runs instead of being skipped; `sharp` lockfile and `@cldmv/vitest-runner` bumps ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.6.md))
 - **v2.1.5** (October 2026) — maintenance: v4.29.2 workflow sync with bundle-size measurement, required-check mirror fix, uniform file headers; no runtime change ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.5.md))
 - **v2.1.4** (September 2026) — `@devicefarmer/adbkit` 3.3.9 in the lockfile, dead code removed from the screencap path, bot signing secrets wired into the release workflows ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.4.md))
-- **v2.1.3** (September 2026) — Vitest 5 toolchain and a Prettier pass over the source; no behavior change ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.3.md))
 
-> **Note:** v2.1.1 through v2.1.7 have been released on GitHub but not yet published to npm, where the latest version is v2.1.0. See the changelogs for what changed in between, including the Node.js 20.9.0 floor introduced in v2.1.1.
+> **Note:** v2.1.1 through v2.1.6 were released on GitHub but never published to npm; npm went from v2.1.0 straight to v2.1.7. See the changelogs for what changed in between, including the Node.js 20.9.0 floor from v2.1.1.
 
 📚 **For complete version history and detailed release notes, see the [docs/changelog/](https://github.com/CLDMV/node-android-tv-remote/tree/master/docs/changelog/) folder.**
 

@@ -142,6 +142,7 @@
 
 import adbkit from "@devicefarmer/adbkit";
 import { EventEmitter } from "events";
+import { debuglog } from "node:util";
 import { createWriteStream } from "fs";
 import sharp from "sharp";
 // @devicefarmer/adbkit is plain CJS (`exports.default` / `exports.Adb` both
@@ -170,114 +171,141 @@ function wrapAsync(fn) {
 	};
 }
 
-// Create event emitter for this instance
-const emitter = new EventEmitter();
+/**
+ * Debug channel for errors no "error" listener is attached to.
+ * Enable with NODE_DEBUG=android-tv-remote.
+ * @private
+ */
+const debug = debuglog("android-tv-remote");
 
 /**
- * Emit a log event with structured data.
+ * Create the event channel for one remote instance. Every remote gets its own
+ * EventEmitter, so listeners on one remote never see another remote's events.
  * @private
- * @param {string} level - Log level (info, warn, error, debug).
- * @param {string} message - Log message.
- * @param {string} [source] - Source of the log message.
- * @param {any} [data] - Additional data to include.
+ * @returns {{ emitter: EventEmitter, emitLog: Function, emitError: Function, handleDisconnectError: Function }}
  */
-function emitLog(level, message, source = "android-tv-remote", data = null) {
-	emitter.emit("log", {
-		level,
-		message,
-		source,
-		timestamp: new Date().toISOString(),
-		...(data && { data })
-	});
-}
+function createEventChannel() {
+	const emitter = new EventEmitter();
 
-/**
- * Emit an error event with structured data.
- * @private
- * @param {Error} error - The error object.
- * @param {string} [source] - Source of the error.
- * @param {string} [message] - Additional error message.
- */
-function emitError(error, source = "android-tv-remote", message = null) {
-	// Filter out libspng/PNG processing errors that occur after disconnection
-	// These are common when background operations try to process data after disconnect
-	const errorMsg = error.message || "";
-	if (errorMsg.includes("libspng") || errorMsg.includes("pngload_buffer") || errorMsg.includes("read error")) {
-		// Log as debug instead of error to avoid noise
-		emitLog("debug", `PNG processing error (likely post-disconnect): ${errorMsg}`, source);
-		return;
+	/**
+	 * Emit a log event with structured data.
+	 * @private
+	 * @param {string} level - Log level (info, warn, error, debug).
+	 * @param {string} message - Log message.
+	 * @param {string} [source] - Source of the log message.
+	 * @param {any} [data] - Additional data to include.
+	 */
+	function emitLog(level, message, source = "android-tv-remote", data = null) {
+		emitter.emit("log", {
+			level,
+			message,
+			source,
+			timestamp: new Date().toISOString(),
+			...(data && { data })
+		});
 	}
 
-	emitter.emit("error", {
-		error,
-		source,
-		message: message || error.message,
-		timestamp: new Date().toISOString()
-	});
-}
+	/**
+	 * Emit an error event with structured data.
+	 * @private
+	 * @param {Error} error - The error object.
+	 * @param {string} [source] - Source of the error.
+	 * @param {string} [message] - Additional error message.
+	 */
+	function emitError(error, source = "android-tv-remote", message = null) {
+		// Filter out libspng/PNG processing errors that occur after disconnection
+		// These are common when background operations try to process data after disconnect
+		const errorMsg = error.message || "";
+		if (errorMsg.includes("libspng") || errorMsg.includes("pngload_buffer") || errorMsg.includes("read error")) {
+			// Log as debug instead of error to avoid noise
+			emitLog("debug", `PNG processing error (likely post-disconnect): ${errorMsg}`, source);
+			return;
+		}
 
-/**
- * Handles disconnect and connection errors, emits helpful messages.
- * Also provides onboarding steps for common authentication and connection issues.
- * @private
- * @param {Error} err - The error object.
- * @example
- * try {
- *   // ...code that may throw
- * } catch (err) {
- *   handleDisconnectError(err);
- * }
- */
+		const payload = {
+			error,
+			source,
+			message: message || error.message,
+			timestamp: new Date().toISOString()
+		};
 
-function handleDisconnectError(err) {
-	emitError(err, "handleDisconnectError");
-
-	if (err.message && (err.message.includes("device unauthorized") || err.message.includes("failed to authenticate"))) {
-		emitError(err, "handleDisconnectError", "Device unauthorized - authentication required");
-		emitLog(
-			"error",
-			"Your device is unauthorized or failed to authenticate. Please check your TV and accept the authorization dialog to allow this system to connect via ADB.",
-			"handleDisconnectError"
-		);
-		emitLog(
-			"info",
-			"If you do not see a prompt, try disconnecting and reconnecting the device, or reboot your TV.",
-			"handleDisconnectError"
-		);
-		emitLog(
-			"info",
-			"If the problem persists, remove the device from the list of authorized ADB devices in Developer Options and try again.",
-			"handleDisconnectError"
-		);
-		emitLog(
-			"info",
-			"Tip: In Developer Options on your TV, try toggling 'ADB Debugging' off and then back on. This often resolves authentication issues.",
-			"handleDisconnectError"
-		);
+		// EventEmitter throws when "error" is emitted with no listener, which would crash
+		// the consumer's process. Without a listener, route the error to the log channel
+		// (and NODE_DEBUG=android-tv-remote) instead; the failing operation still rejects
+		// or resolves with the error, so it is never silently lost.
+		if (emitter.listenerCount("error") > 0) {
+			emitter.emit("error", payload);
+			return;
+		}
+		debug("unhandled error from %s: %s", source, payload.message);
+		emitLog("error", payload.message, source, { error });
 	}
 
-	if (err.message && (err.message.includes("actively refused") || err.message.includes("No connection could be made"))) {
-		emitError(err, "handleDisconnectError", "Connection refused - ADB not enabled");
-		emitLog(
-			"error",
-			"The device refused the connection. To enable ADB, follow these steps on your Android TV or Fire TV:",
-			"handleDisconnectError"
-		);
-		emitLog("info", "1. Open Settings > Device Preferences > About (or My Fire TV > About)", "handleDisconnectError");
-		emitLog("info", "2. Scroll to 'Build' and press OK 7 times to enable Developer Options", "handleDisconnectError");
-		emitLog("info", "3. Go back to Settings > Device Preferences > Developer Options", "handleDisconnectError");
-		emitLog(
-			"info",
-			"4. Enable 'Developer Options' if needed, then enable 'ADB Debugging' and 'Apps from Unknown Sources'",
-			"handleDisconnectError"
-		);
-		emitLog("info", "5. Ensure your TV and computer are on the same network", "handleDisconnectError");
-		emitLog("info", "6. On your computer, run: adb connect <device-ip>:5555", "handleDisconnectError");
-		emitLog("info", "7. Accept the authorization prompt on your TV", "handleDisconnectError");
-		emitLog("info", "If you do not see 'Developer Options', repeat step 2 until it appears.", "handleDisconnectError");
+	/**
+	 * Handles disconnect and connection errors, emits helpful messages.
+	 * Also provides onboarding steps for common authentication and connection issues.
+	 * @private
+	 * @param {Error} err - The error object.
+	 * @example
+	 * try {
+	 *   // ...code that may throw
+	 * } catch (err) {
+	 *   handleDisconnectError(err);
+	 * }
+	 */
+
+	function handleDisconnectError(err) {
+		emitError(err, "handleDisconnectError");
+
+		if (err.message && (err.message.includes("device unauthorized") || err.message.includes("failed to authenticate"))) {
+			emitError(err, "handleDisconnectError", "Device unauthorized - authentication required");
+			emitLog(
+				"error",
+				"Your device is unauthorized or failed to authenticate. Please check your TV and accept the authorization dialog to allow this system to connect via ADB.",
+				"handleDisconnectError"
+			);
+			emitLog(
+				"info",
+				"If you do not see a prompt, try disconnecting and reconnecting the device, or reboot your TV.",
+				"handleDisconnectError"
+			);
+			emitLog(
+				"info",
+				"If the problem persists, remove the device from the list of authorized ADB devices in Developer Options and try again.",
+				"handleDisconnectError"
+			);
+			emitLog(
+				"info",
+				"Tip: In Developer Options on your TV, try toggling 'ADB Debugging' off and then back on. This often resolves authentication issues.",
+				"handleDisconnectError"
+			);
+		}
+
+		if (err.message && (err.message.includes("actively refused") || err.message.includes("No connection could be made"))) {
+			emitError(err, "handleDisconnectError", "Connection refused - ADB not enabled");
+			emitLog(
+				"error",
+				"The device refused the connection. To enable ADB, follow these steps on your Android TV or Fire TV:",
+				"handleDisconnectError"
+			);
+			emitLog("info", "1. Open Settings > Device Preferences > About (or My Fire TV > About)", "handleDisconnectError");
+			emitLog("info", "2. Scroll to 'Build' and press OK 7 times to enable Developer Options", "handleDisconnectError");
+			emitLog("info", "3. Go back to Settings > Device Preferences > Developer Options", "handleDisconnectError");
+			emitLog(
+				"info",
+				"4. Enable 'Developer Options' if needed, then enable 'ADB Debugging' and 'Apps from Unknown Sources'",
+				"handleDisconnectError"
+			);
+			emitLog("info", "5. Ensure your TV and computer are on the same network", "handleDisconnectError");
+			emitLog("info", "6. On your computer, run: adb connect <device-ip>:5555", "handleDisconnectError");
+			emitLog("info", "7. Accept the authorization prompt on your TV", "handleDisconnectError");
+			emitLog("info", "If you do not see 'Developer Options', repeat step 2 until it appears.", "handleDisconnectError");
+		}
+
+		return err;
 	}
 
-	return err;
+	return { emitter, emitLog, emitError, handleDisconnectError };
 }
 
 /**
@@ -358,6 +386,8 @@ export default async function createRemote(config) {
 		timeout: connectTimeout
 	});
 	const device = client.getDevice(host);
+	// Per-instance event channel: listeners are scoped to this remote.
+	const { emitter, emitLog, emitError, handleDisconnectError } = createEventChannel();
 	let connected = false;
 	let backgroundOperations = new Set();
 
@@ -454,6 +484,9 @@ export default async function createRemote(config) {
 			}, INIT_TIMEOUT_MS);
 		})
 	]);
+	// Callers who never look at initPromise must not get an unhandled rejection (which
+	// crashes Node.js) when auto-connect fails; awaiting it still rejects as before.
+	initPromise.catch(() => {});
 
 	/**
 	 * Resets the disconnect timer if autoDisconnect is enabled.

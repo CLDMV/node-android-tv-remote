@@ -351,7 +351,7 @@ await remote.keyboard.key.a.keycode(); // Sends keycode instead of character
 ### Events
 
 - `log` - Emitted for all operations (info, warn, error, debug levels)
-- `error` - Emitted when errors occur (structured error data)
+- `error` - Emitted when errors occur (structured error data). Each remote has its own listeners. With no `error` listener attached, the error is emitted as a `log` event with `level: 'error'` (the `Error` is in `data.error`) instead of throwing. The failing call still reports it: commands reject, and `connect()` / `disconnect()` resolve with the `Error` as before
 - `screencap-start` - Emitted when screenshot capture begins
 - `screencap-captured` - Emitted when raw screenshot is captured
 - `screencap-processing` - Emitted when image processing begins

@@ -52,7 +52,7 @@
 		"url": "https://github.com/CLDMV/node-android-tv-remote/issues"
 	},
 	"homepage": "https://github.com/CLDMV/node-android-tv-remote#readme",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"files": [
 		"src/",
 		"scripts/",

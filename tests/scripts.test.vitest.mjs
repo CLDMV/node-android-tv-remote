@@ -1,4 +1,19 @@
 /**
+ *
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /tests/scripts.test.vitest.mjs
+ *	@Date: 2026-10-03T17:30:24-07:00 (1791073824)
+ *	@Author: Nate Corcoran <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-03T17:34:47-07:00 (1791074087)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
+ */
+
+/**
  * Smoke test for everything under scripts/: every script must import cleanly,
  * so a dangling import (like scripts/setup-device.mjs pointing at the removed
  * src/lib/adb/setup.mjs, #42) fails CI instead of shipping. Scripts only run

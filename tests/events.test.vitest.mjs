@@ -1,4 +1,19 @@
 /**
+ *
+ *	@Project: @cldmv/node-android-tv-remote
+ *	@Filename: /tests/events.test.vitest.mjs
+ *	@Date: 2026-10-03T17:33:40-07:00 (1791074020)
+ *	@Author: Nate Corcoran <CLDMV>
+ *	@Email: <Shinrai@users.noreply.github.com>
+ *	-----
+ *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
+ *	@Last modified time: 2026-10-03T17:34:50-07:00 (1791074090)
+ *	-----
+ *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
+ *
+ */
+
+/**
  * Event behaviour of the remote: every remote has its own event emitter (#43),
  * and an `error` event with no listener never crashes the process — it goes to
  * the `log` channel and the pending promise instead (#44).

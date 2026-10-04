@@ -37,7 +37,7 @@ Every remote is an event source: operations report through structured `log` even
 - 🎯 **Event-driven architecture** - Comprehensive event system with structured data
 - ⌨️ **Comprehensive keyboard input** - 71 characters with smart shift detection and special symbols
 - 🔄 **ESM & CommonJS support** - Works with both `import` and `require`
-- 🛡️ **Error resilience** - Errors emit events instead of crashing your app (attach an `error` listener — see [Event-Driven Usage](#event-driven-usage-recommended))
+- 🛡️ **Error resilience** - Errors are reported as events instead of crashing your app; an `error` listener is optional (see [Event-Driven Usage](#event-driven-usage-recommended))
 - 🔗 **Method chaining** - Fluent API for event listener management
 - 📊 **Structured logging** - Timestamped, categorized log events with source tracking
 - 🚀 **Promise-based** - Modern async/await support with callback compatibility
@@ -134,7 +134,7 @@ const remote = await createAndroidTVRemote({ ip: "192.168.1.100" });
 
 ### Event-Driven Usage (Recommended)
 
-This module uses an **event-driven architecture** instead of console logging. All operations emit structured events that you can listen to. The remote is a Node.js event emitter, so an `error` event with no listener attached throws — always register an `error` listener:
+This module uses an **event-driven architecture** instead of console logging. All operations emit structured events that you can listen to. The remote is a Node.js event emitter, but an `error` event is only emitted when a listener is attached, so an `error` listener is optional. Without one, the error is emitted as a `log` event with `level: 'error'` and written to `NODE_DEBUG=android-tv-remote`. Register an `error` listener to handle failures yourself:
 
 ```js
 import createRemote from "@cldmv/node-android-tv-remote";

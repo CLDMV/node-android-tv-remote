@@ -72,8 +72,8 @@
 		"node": ">=20.9.0"
 	},
 	"devDependencies": {
-		"@cldmv/configs": "^1.2.0",
-		"@cldmv/fix-headers": "^2.1.4",
+		"@cldmv/configs": "^1.2.4",
+		"@cldmv/fix-headers": "^2.2.0",
 		"@cldmv/vitest-runner": "^1.2.0",
 		"@eslint/css": "^2.0.0",
 		"@eslint/js": "^10.0.1",

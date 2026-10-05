@@ -18,36 +18,50 @@
  * Usage: node wake-tv.mjs <ip_address>
  */
 
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import createRemote from "../src/lib/android-tv-remote.mjs";
 
-// Get IP address from command line arguments
-const ip = process.argv[2];
+/**
+ * CLI entry: wake the device whose IP is given on the command line.
+ * @param {string[]} [argv=process.argv.slice(2)] - CLI arguments.
+ * @returns {Promise<void>}
+ */
+export async function main(argv = process.argv.slice(2)) {
+	// Get IP address from command line arguments
+	const ip = argv[0];
 
-if (!ip) {
-	console.error("❌ Usage: node wake-tv.mjs <ip_address>");
-	console.error("   Example: node wake-tv.mjs 10.6.0.133");
-	process.exit(1);
+	if (!ip) {
+		console.error("❌ Usage: node wake-tv.mjs <ip_address>");
+		console.error("   Example: node wake-tv.mjs 10.6.0.133");
+		process.exit(1);
+	}
+
+	console.log(`🔌 Waking up TV at ${ip}...`);
+
+	try {
+		const remote = await createRemote({
+			ip: ip,
+			autoConnect: true,
+			quiet: false
+		});
+
+		console.log("✅ Connected to device");
+
+		// Wake up the device
+		await remote.ensureAwake();
+		console.log("🎉 TV should now be awake and ready!");
+
+		// Disconnect
+		await remote.disconnect();
+		console.log("✅ Disconnected from device");
+	} catch (error) {
+		console.error("❌ Failed to wake up TV:", error.message);
+		process.exit(1);
+	}
 }
 
-console.log(`🔌 Waking up TV at ${ip}...`);
-
-try {
-	const remote = await createRemote({
-		ip: ip,
-		autoConnect: true,
-		quiet: false
-	});
-
-	console.log("✅ Connected to device");
-
-	// Wake up the device
-	await remote.ensureAwake();
-	console.log("🎉 TV should now be awake and ready!");
-
-	// Disconnect
-	await remote.disconnect();
-	console.log("✅ Disconnected from device");
-} catch (error) {
-	console.error("❌ Failed to wake up TV:", error.message);
-	process.exit(1);
+// Run only when executed directly, not when imported.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+	await main();
 }

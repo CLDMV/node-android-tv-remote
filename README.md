@@ -18,6 +18,7 @@ Every remote is an event source: operations report through structured `log` even
 
 - **Independent remotes, and no crash on an unheard error** — each remote now has its own event emitter, so two TVs no longer receive each other's events. An `error` with no listener is logged (a `log` event with level `"error"`, and `NODE_DEBUG=android-tv-remote`) instead of thrown, while the failing call still rejects ([#46](https://github.com/CLDMV/node-android-tv-remote/pull/46)).
 - **`npm run setup-device` works again** — the script, broken since v2.1.0, now runs the setup steps through the v2 remote ([#45](https://github.com/CLDMV/node-android-tv-remote/pull/45)). The package is also relicensed under Apache-2.0 ([#41](https://github.com/CLDMV/node-android-tv-remote/pull/41)).
+- **Header tooling on fix-headers 2.2.0** — the `@cldmv/fix-headers` and `@cldmv/configs` dev dependencies move to 2.2.0 and 1.2.4, so `@Last modified by` now follows content edits only; no file was restamped ([#50](https://github.com/CLDMV/node-android-tv-remote/pull/50), [#52](https://github.com/CLDMV/node-android-tv-remote/pull/52)).
 - [View full v2.1.8 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md)
 
 ### Recent Releases

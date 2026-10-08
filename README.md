@@ -14,19 +14,18 @@ Every remote is an event source: operations report through structured `log` even
 
 ## ✨ What's New
 
-### Latest: v2.1.8 (October 2026)
+### Latest: v2.1.9 (October 2026)
 
-- **Independent remotes, and no crash on an unheard error** — each remote now has its own event emitter, so two TVs no longer receive each other's events. An `error` with no listener is logged (a `log` event with level `"error"`, and `NODE_DEBUG=android-tv-remote`) instead of thrown, while the failing call still rejects ([#46](https://github.com/CLDMV/node-android-tv-remote/pull/46)).
-- **`npm run setup-device` works again** — the script, broken since v2.1.0, now runs the setup steps through the v2 remote ([#45](https://github.com/CLDMV/node-android-tv-remote/pull/45)). The package is also relicensed under Apache-2.0 ([#41](https://github.com/CLDMV/node-android-tv-remote/pull/41)).
-- **Header tooling on fix-headers 2.2.0** — the `@cldmv/fix-headers` and `@cldmv/configs` dev dependencies move to 2.2.0 and 1.2.4, so `@Last modified by` now follows content edits only; no file was restamped ([#50](https://github.com/CLDMV/node-android-tv-remote/pull/50), [#52](https://github.com/CLDMV/node-android-tv-remote/pull/52)).
-- [View full v2.1.8 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md)
+- **`brace-expansion` security fix in the dev toolchain** — the lockfile moves `brace-expansion` from 5.0.9 to 5.0.12, fixing a medium-severity quadratic-time denial of service (GHSA-q2hr-2g5m-vwhr). It is a development-only transitive dependency, so the installed package is unaffected ([#55](https://github.com/CLDMV/node-android-tv-remote/pull/55)).
+- **Dev-tooling bumps, no runtime change** — Vitest 5.0.3, ESLint 10.12.0, `globals` 17.13.0 and `@cldmv/vitest-runner` 1.5.3 (which raises its own Node.js floor to 22.12). Runtime dependencies and the package's `engines` are unchanged ([#56](https://github.com/CLDMV/node-android-tv-remote/pull/56), [#57](https://github.com/CLDMV/node-android-tv-remote/pull/57), [#59](https://github.com/CLDMV/node-android-tv-remote/pull/59), [#61](https://github.com/CLDMV/node-android-tv-remote/pull/61)).
+- [View full v2.1.9 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.9.md)
 
 ### Recent Releases
 
+- **v2.1.8** (October 2026) — independent event emitters per remote, an unheard `error` no longer crashes the process, `npm run setup-device` works again, relicensed under Apache-2.0 ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md))
 - **v2.1.7** (October 2026) — CommonJS entry loads the ESM build directly, fails clearly without `require(esm)`, and exports `createAndroidTVRemote` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.7.md))
 - **v2.1.6** (October 2026) — CI only: the in-repo PR mirror job runs instead of being skipped; `sharp` lockfile and `@cldmv/vitest-runner` bumps ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.6.md))
 - **v2.1.5** (October 2026) — maintenance: v4.29.2 workflow sync with bundle-size measurement, required-check mirror fix, uniform file headers; no runtime change ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.5.md))
-- **v2.1.4** (September 2026) — `@devicefarmer/adbkit` 3.3.9 in the lockfile, dead code removed from the screencap path, bot signing secrets wired into the release workflows ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.4.md))
 
 > **Note:** v2.1.1 through v2.1.6 were released on GitHub but never published to npm; npm went from v2.1.0 straight to v2.1.7. See the changelogs for what changed in between, including the Node.js 20.9.0 floor from v2.1.1.
 

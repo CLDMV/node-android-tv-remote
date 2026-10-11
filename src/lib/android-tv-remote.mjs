@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T15:27:16-08:00 (1793575636)
+ *	@Last modified time: 2026-11-07T09:43:31-08:00 (1794073411)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -60,9 +60,9 @@
  * @property {boolean} [autoConnect=true] - Whether to auto-connect on command.
  * @property {boolean} [autoDisconnect=false] - Whether to auto-disconnect after inactivity.
  * @property {number} [disconnectTimeout=10] - Inactivity timeout in seconds before disconnecting.
- * @property {boolean} [maintainConnection=true] - Whether to maintain the ADB connection with a heartbeat.
- * @property {number} [heartbeatInterval=30000] - Heartbeat interval in ms (default 30s).
- * @property {number} [connectionCheckInterval=30000] - Interval in ms for periodic connection checks (default 30s).
+ * @property {boolean} [maintainConnection=true] - Whether to keep the connection alive: a heartbeat probe plus automatic reconnect with backoff (droidsock `heartbeat` and `autoReconnect`).
+ * @property {number} [heartbeatInterval=20000] - Heartbeat interval in ms (default 30s).
+ * @property {number} [connectionCheckInterval] - Deprecated and ignored: dropped connections are now detected by the droidsock socket and heartbeat, and reconnected with backoff.
  * @property {number} [connectTimeout=10000] - Timeout in ms for ADB connection attempts (default 10s).
  * @property {boolean} [quiet=true] - Suppress log events if true (errors are always emitted).
  */
@@ -96,7 +96,7 @@
  * @property {function(): Promise<boolean>} reboot - Reboots the device using ADB's native reboot method.
  * @property {function(Object=): Promise<ReadableStream|void>} screencap - Takes a screenshot with optional resizing and file saving.
  * @property {function(number=): Promise<boolean>} waitBootComplete - Waits until device has finished booting (default 60s timeout).
- * @property {function(boolean=): Promise<"connected"|"disconnected"|"unknown">} getConnectionStatus - Returns the current connection status; optionally performs a live check.
+ * @property {function(boolean=): Promise<"connected"|"disconnected">} getConnectionStatus - Returns the current connection status; optionally performs a live check.
  * @property {boolean} isConnected - True if the module believes it is connected (internal state, not a live check).
  * @property {Object} press - Remote control key functions for Android TV remotes.
  * @property {Object} keyboard - Keyboard interface for all keys, with text and keycode fallback.
@@ -140,20 +140,13 @@
  * });
  */
 
-import adbkit from "@devicefarmer/adbkit";
+import createDroidSock from "@cldmv/droidsock";
 import { EventEmitter } from "events";
 import { debuglog } from "node:util";
 import { createWriteStream } from "fs";
-import { Transform } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
-// @devicefarmer/adbkit is plain CJS (`exports.default` / `exports.Adb` both
-// getter re-exports of the same class). Under plain Node's ESM/CJS interop,
-// the default import resolves to `module.exports` (so `.Adb` holds the
-// class); under Vite/Rollup-based CJS interop (e.g. vitest with the module
-// inlined), the default import unwraps straight to the class itself. Cover
-// both shapes rather than assuming one.
-const Adb = adbkit.Adb ?? adbkit;
 
 /**
  * Wraps an async function to support both promise and callback styles.
@@ -259,7 +252,12 @@ function createEventChannel() {
 	function handleDisconnectError(err) {
 		emitError(err, "handleDisconnectError");
 
-		if (err.message && (err.message.includes("device unauthorized") || err.message.includes("failed to authenticate"))) {
+		if (
+			err.message &&
+			(err.message.includes("device unauthorized") ||
+				err.message.includes("failed to authenticate") ||
+				err.message.includes("Authentication failed"))
+		) {
 			emitError(err, "handleDisconnectError", "Device unauthorized - authentication required");
 			emitLog(
 				"error",
@@ -283,7 +281,12 @@ function createEventChannel() {
 			);
 		}
 
-		if (err.message && (err.message.includes("actively refused") || err.message.includes("No connection could be made"))) {
+		if (
+			err.message &&
+			(err.message.includes("ECONNREFUSED") ||
+				err.message.includes("actively refused") ||
+				err.message.includes("No connection could be made"))
+		) {
 			emitError(err, "handleDisconnectError", "Connection refused - ADB not enabled");
 			emitLog(
 				"error",
@@ -299,7 +302,7 @@ function createEventChannel() {
 				"handleDisconnectError"
 			);
 			emitLog("info", "5. Ensure your TV and computer are on the same network", "handleDisconnectError");
-			emitLog("info", "6. On your computer, run: adb connect <device-ip>:5555", "handleDisconnectError");
+			emitLog("info", "6. Connect again with remote.connect()", "handleDisconnectError");
 			emitLog("info", "7. Accept the authorization prompt on your TV", "handleDisconnectError");
 			emitLog("info", "If you do not see 'Developer Options', repeat step 2 until it appears.", "handleDisconnectError");
 		}
@@ -384,10 +387,40 @@ export default async function createRemote(config) {
 	const inputDevice = config.inputDevice || "/dev/input/event0";
 	const host = ip + ":" + port;
 	const connectTimeout = typeof config.connectTimeout === "number" ? config.connectTimeout : 10000;
-	const client = Adb.createClient({
-		timeout: connectTimeout
-	});
-	const device = client.getDevice(host);
+	const droid = await createDroidSock({ config: { timeout: connectTimeout } });
+	/** The live droidsock device handle; set by connect() and kept for reconnects. @type {any} */
+	let leaf = null;
+	const requireLeaf = () => {
+		if (!leaf) throw new Error("Device not connected");
+		return leaf;
+	};
+	// The calls below all run against the live droidsock handle, so a reconnect needs no re-wiring here.
+	const device = {
+		/** @param {string} cmd @param {object} [opts] @returns {Promise<string>} */
+		shell: (cmd, opts) => requireLeaf().shell(cmd, opts),
+		reboot: () => requireLeaf().reboot(),
+		/** Captures the screen as a PNG stream. The bytes go through a latin1 string so no byte is altered. */
+		async screencap() {
+			const out = await requireLeaf().shell("screencap -p", { encoding: "latin1", timeout: connectTimeout * 3 });
+			return Readable.from([Buffer.from(out, "latin1")]);
+		},
+		/** Polls sys.boot_completed until it reads 1 or the timeout passes. An unauthorized device fails right away. */
+		async waitBootComplete(timeout = 60000) {
+			const deadline = Date.now() + timeout;
+			for (;;) {
+				try {
+					const out = await requireLeaf().shell("getprop sys.boot_completed", { timeout: Math.max(deadline - Date.now(), 1) });
+					if (out.trim() === "1") return true;
+				} catch (err) {
+					if (err.message.includes("unauthorized")) throw err;
+					// the device is unreachable while it reboots; keep polling until the deadline
+				}
+				const left = deadline - Date.now();
+				if (left <= 0) throw new Error("Boot completion timeout after " + timeout + "ms");
+				await new Promise((r) => setTimeout(r, Math.min(1000, left)));
+			}
+		}
+	};
 	// Per-instance event channel: listeners are scoped to this remote.
 	const { emitter, emitLog, emitError, handleDisconnectError } = createEventChannel();
 	let connected = false;
@@ -416,13 +449,10 @@ export default async function createRemote(config) {
 	const autoConnect = config.autoConnect !== false; // default true
 	const autoDisconnect = config.autoDisconnect === true; // default false
 	const disconnectTimeout = typeof config.disconnectTimeout === "number" ? config.disconnectTimeout : 10;
-	const connectionCheckInterval = typeof config.connectionCheckInterval === "number" ? config.connectionCheckInterval : 10000;
-	let connectionCheckTimer = null;
 	let disconnectTimer = null;
 	const quiet = config.quiet !== false; // default true
 	const maintainConnection = config.maintainConnection !== false; // default true
 	const heartbeatInterval = typeof config.heartbeatInterval === "number" ? config.heartbeatInterval : 20000;
-	let heartbeatTimer = null;
 
 	/**
 	 * On initialization, check if already connected to the device and set internal state.
@@ -454,22 +484,13 @@ export default async function createRemote(config) {
 		}
 		(async () => {
 			try {
-				const status = await getConnectionStatus(true);
-				if (status === "connected") {
-					connected = true;
-					if (!quiet) emitLog("info", `Already connected to ${host} (on init)`, "initPromise");
-					startHeartbeat();
+				await connect();
+				if (connected) {
 					initPromiseResolve(undefined);
 				} else {
-					// Try to connect if not already connected
-					await connect();
-					if (connected) {
-						initPromiseResolve(undefined);
-					} else {
-						const error = new Error("Failed to connect to device on initialization.");
-						emitError(error, "initPromise", "Auto-connect failed during initialization");
-						initPromiseReject(error);
-					}
+					const error = new Error("Failed to connect to device on initialization.");
+					emitError(error, "initPromise", "Auto-connect failed during initialization");
+					initPromiseReject(error);
 				}
 			} catch (e) {
 				emitError(e instanceof Error ? e : new Error(String(e)), "initPromise", "Exception during initialization");
@@ -504,60 +525,30 @@ export default async function createRemote(config) {
 	}
 
 	/**
-	 * Starts the heartbeat timer to maintain the ADB connection.
-	 * Periodically sends a shell command to keep the connection alive.
-	 * Also starts the periodic connection check for auto-reconnect.
+	 * Wires the droidsock lifecycle events to this remote's state and log channel.
 	 * @private
 	 */
-	function startHeartbeat() {
-		if (!maintainConnection) return;
-		if (heartbeatTimer) clearInterval(heartbeatTimer);
-		heartbeatTimer = setInterval(() => {
-			if (!connected) return;
-			// Send a no-op shell command to keep the connection alive
-			device.shell("echo heartbeat").catch(() => {});
-		}, heartbeatInterval);
-		startConnectionCheck();
-	}
-
-	/**
-	 * Starts the periodic connection check. If disconnected, attempts to reconnect.
-	 * Ensures persistent, self-healing ADB connection.
-	 * @private
-	 */
-	function startConnectionCheck() {
-		if (connectionCheckTimer) clearInterval(connectionCheckTimer);
-		connectionCheckTimer = setInterval(async () => {
-			if (!connected) return;
-			try {
-				const devices = await client.listDevices();
-				const deviceId = host;
-				const found = devices.some((d) => d.id === deviceId);
-				if (!found) {
-					emitLog("warn", `Device ${deviceId} not found in adb devices list. Attempting reconnect...`, "connectionCheck");
-					connected = false;
-					await connect();
-				}
-			} catch (err) {
-				const error = err instanceof Error ? err : new Error(String(err));
-				emitLog("warn", `Error checking device connection: ${error.message}`, "connectionCheck");
-			}
-		}, connectionCheckInterval);
-	}
-
-	/**
-	 * Stops the heartbeat and connection check timers.
-	 * @private
-	 */
-	function stopHeartbeat() {
-		if (heartbeatTimer) {
-			clearInterval(heartbeatTimer);
-			heartbeatTimer = null;
-		}
-		if (connectionCheckTimer) {
-			clearInterval(connectionCheckTimer);
-			connectionCheckTimer = null;
-		}
+	function watchLeaf() {
+		leaf.on("connected", () => {
+			connected = true;
+		});
+		leaf.on("disconnected", ({ intentional }) => {
+			connected = false;
+			if (!intentional) emitLog("warn", `Connection to ${host} dropped`, "connectionCheck");
+		});
+		leaf.on("reconnecting", ({ attempt, delay }) => {
+			emitLog("warn", `Reconnecting to ${host} (attempt ${attempt} in ${delay}ms)`, "connectionCheck");
+		});
+		leaf.on("reconnected", () => {
+			if (!quiet) emitLog("info", `Reconnected to ${host}`, "connectionCheck");
+		});
+		leaf.on("gave-up", ({ reason, error }) => {
+			emitError(
+				error instanceof Error ? error : new Error(`Gave up reconnecting to ${host} (${reason})`),
+				"connectionCheck",
+				`Gave up reconnecting (${reason})`
+			);
+		});
 	}
 
 	/**
@@ -584,22 +575,18 @@ export default async function createRemote(config) {
 			if (!quiet) emitLog("info", `Already connected to ${host}`, "connect");
 			return Promise.resolve();
 		}
-		return client
-			.connect(ip, port)
-			.then(() => {
+		const options = maintainConnection ? { autoReconnect: true, heartbeat: { interval: heartbeatInterval } } : {};
+		return droid.device
+			.connect(ip, port, options)
+			.then((handle) => {
+				if (handle !== leaf) {
+					leaf = handle;
+					watchLeaf();
+				}
 				connected = true;
 				if (!quiet) emitLog("info", `Connected to ${host}`, "connect");
-				startHeartbeat();
 			})
-			.catch((err) => {
-				if (err.message && err.message.includes("already connected")) {
-					if (!quiet) emitLog("warn", "Device already connected", "connect");
-					connected = true;
-					startHeartbeat();
-					return true;
-				}
-				return handleDisconnectError(err);
-			});
+			.catch((err) => handleDisconnectError(err));
 	}
 	const connectWrapped = wrapAsync(connect);
 
@@ -614,8 +601,6 @@ export default async function createRemote(config) {
 			clearTimeout(disconnectTimer);
 			disconnectTimer = null;
 		}
-		stopHeartbeat();
-
 		// Wait for all background operations to complete before disconnecting
 		if (backgroundOperations.size > 0) {
 			if (!quiet)
@@ -643,7 +628,7 @@ export default async function createRemote(config) {
 		}
 
 		try {
-			await client.disconnect(ip, port);
+			droid.device.disconnect(ip, port);
 			connected = false;
 			if (!quiet) emitLog("info", `Disconnected from ${host}`, "disconnect");
 			return true;
@@ -704,11 +689,11 @@ export default async function createRemote(config) {
 
 	/**
 	 * Returns the current connection status as tracked by the module.
-	 * Optionally performs a live check against adb devices if requested.
+	 * Optionally performs a live check of the droidsock socket if requested.
 	 * Also updates the internal connected state if a live check is performed.
 	 * @public
-	 * @param {boolean} [liveCheck=false] - If true, checks adb devices for actual connection.
-	 * @returns {Promise<"connected"|"disconnected"|"unknown">}
+	 * @param {boolean} [liveCheck=false] - If true, checks the live socket.
+	 * @returns {Promise<"connected"|"disconnected">}
 	 * @example
 	 * await remote.getConnectionStatus();
 	 * await remote.getConnectionStatus(true); // live check
@@ -717,16 +702,8 @@ export default async function createRemote(config) {
 		if (!liveCheck) {
 			return connected ? "connected" : "disconnected";
 		}
-		try {
-			const devices = await client.listDevices();
-			const deviceId = host;
-			const found = devices.some((d) => d.id === deviceId);
-			connected = found; // Keep internal state in sync with live check
-			return found ? "connected" : "disconnected";
-		} catch {
-			connected = false;
-			return "unknown";
-		}
+		connected = !!leaf && leaf.isConnected();
+		return connected ? "connected" : "disconnected";
 	}
 
 	/**
@@ -841,8 +818,8 @@ export default async function createRemote(config) {
 		/**
 		 * Returns the current connection status as tracked by the module, or does a live check if requested.
 		 * @function
-		 * @param {boolean} [liveCheck=false] - If true, checks adb devices for actual connection.
-		 * @returns {Promise<"connected"|"disconnected"|"unknown">}
+		 * @param {boolean} [liveCheck=false] - If true, checks the live socket.
+		 * @returns {Promise<"connected"|"disconnected">}
 		 * @example
 		 * await remote.getConnectionStatus();
 		 * await remote.getConnectionStatus(true); // live check
@@ -922,7 +899,7 @@ export default async function createRemote(config) {
 				for (const item of coreSettings) {
 					const cmd = mode === "set" ? `settings put ${item.ns} ${item.key} ${item.value}` : `settings get ${item.ns} ${item.key}`;
 
-					const result = await device.shell(cmd).then(Adb.util.readAll);
+					const result = await device.shell(cmd);
 
 					if (!quiet) {
 						if (mode === "set") {
@@ -986,10 +963,7 @@ export default async function createRemote(config) {
 
 				// Helper function to get current power state
 				const getCurrentPowerState = async () => {
-					const output = await device
-						.shell("dumpsys power")
-						.then(Adb.util.readAll)
-						.then((b) => b.toString());
+					const output = await device.shell("dumpsys power");
 					return parsePowerState(output);
 				};
 
@@ -1173,7 +1147,6 @@ export default async function createRemote(config) {
 					emitLog("info", "Device should be rebooting now - connection will be terminated", "reboot");
 					// Force disconnect after reboot
 					connected = false;
-					stopHeartbeat();
 				}, 1000);
 
 				emitLog("info", "=== Device reboot initiated ===", "reboot");
@@ -1602,8 +1575,8 @@ export default async function createRemote(config) {
 
 				emitLog("info", `Monitoring boot status (timeout: ${timeout}ms)`, "waitBootComplete");
 
-				// adbkit rejects with a TimeoutError and closes the connection once the signal aborts
-				const result = await device.waitBootComplete({ signal: AbortSignal.timeout(timeout) });
+				// Polls sys.boot_completed through shell until it reads 1 or the timeout passes
+				const result = await device.waitBootComplete(timeout);
 
 				emitLog("info", "✅ Device boot completed successfully", "waitBootComplete");
 				emitLog("info", "Device is now ready for operations", "waitBootComplete");
@@ -1615,12 +1588,8 @@ export default async function createRemote(config) {
 				// Provide helpful error messages for common issues
 				if (error.message && error.message.includes("unauthorized")) {
 					emitLog("error", "Device unauthorized - ensure ADB debugging is enabled and device is authorized", "waitBootComplete");
-				} else if (error.message && error.message.includes("device not found")) {
-					emitLog("error", "Device not found - check IP address and ADB connection", "waitBootComplete");
 				} else if (error.message && error.message.includes("timeout")) {
 					emitLog("error", `Boot completion timeout after ${timeout}ms - device may still be starting`, "waitBootComplete");
-				} else if (error.message && error.message.includes("connection")) {
-					emitLog("error", "Connection lost while waiting for boot completion", "waitBootComplete");
 				}
 
 				throw error;

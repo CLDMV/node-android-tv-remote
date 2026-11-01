@@ -1610,8 +1610,8 @@ export default async function createRemote(config) {
 
 				emitLog("info", `Monitoring boot status (timeout: ${timeout}ms)`, "waitBootComplete");
 
-				// Use the native device.waitBootComplete() method
-				const result = await device.waitBootComplete();
+				// adbkit rejects with a TimeoutError and closes the connection once the signal aborts
+				const result = await device.waitBootComplete({ signal: AbortSignal.timeout(timeout) });
 
 				emitLog("info", "✅ Device boot completed successfully", "waitBootComplete");
 				emitLog("info", "Device is now ready for operations", "waitBootComplete");

@@ -631,6 +631,37 @@ describe("waitBootComplete", () => {
 		expect(device.waitBootComplete).toHaveBeenCalledTimes(1);
 	});
 
+	test("passes the timeout to adbkit as an AbortSignal (#85)", async () => {
+		const remote = await createRemote(offline());
+
+		await remote.waitBootComplete(1234);
+
+		const [options] = device.waitBootComplete.mock.calls[0];
+		expect(options.signal).toBeInstanceOf(AbortSignal);
+		expect(options.signal.aborted).toBe(false);
+	});
+
+	test("gives up once the timeout passes instead of waiting for the device (#85)", async () => {
+		// Like adbkit 4: the wait rejects with signal.reason when the signal aborts.
+		// Without a signal it would only finish when the device does, after 2s here.
+		device.waitBootComplete.mockImplementation(
+			(options) =>
+				new Promise((resolve, reject) => {
+					const finished = setTimeout(() => resolve(true), 2000);
+					options?.signal?.addEventListener("abort", () => {
+						clearTimeout(finished);
+						reject(options.signal.reason);
+					});
+				})
+		);
+		const remote = await createRemote(offline());
+		const logs = logsOf(remote);
+		remote.on("error", () => {});
+
+		await expect(remote.waitBootComplete(50)).rejects.toMatchObject({ name: "TimeoutError" });
+		expect(messages(logs)).toContain("Boot completion timeout after 50ms - device may still be starting");
+	});
+
 	test.each([
 		["unauthorized", "Device unauthorized - ensure ADB debugging is enabled and device is authorized"],
 		["device not found", "Device not found - check IP address and ADB connection"],

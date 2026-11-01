@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-10-02T12:16:15-07:00 (1790968575)
+ *	@Last modified time: 2026-11-01T15:27:16-08:00 (1793575636)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -144,6 +144,8 @@ import adbkit from "@devicefarmer/adbkit";
 import { EventEmitter } from "events";
 import { debuglog } from "node:util";
 import { createWriteStream } from "fs";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
 // @devicefarmer/adbkit is plain CJS (`exports.default` / `exports.Adb` both
 // getter re-exports of the same class). Under plain Node's ESM/CJS interop,
@@ -1394,50 +1396,40 @@ export default async function createRemote(config) {
 					const backgroundOperation = (async () => {
 						try {
 							const fileOpStartTime = performance.now();
-							const writeStream = createWriteStream(filepath);
 
-							// Process and save data, collecting it for lastScreencapData
+							// Process and save data, collecting it for lastScreencapData. pipeline()
+							// resolves only once the file is fully written, and rejects (destroying
+							// every stream) if the capture, the resize or the write fails.
 							const chunks = [];
-							const processedStream = screencapStream.pipe(sharpTransform);
-
-							await new Promise((resolve, reject) => {
-								processedStream.on("data", (chunk) => {
+							const collect = new Transform({
+								transform(chunk, _encoding, callback) {
 									chunks.push(chunk);
-									writeStream.write(chunk);
-								});
+									callback(null, chunk);
+								}
+							});
+							await pipeline(screencapStream, sharpTransform, collect, createWriteStream(filepath));
 
-								processedStream.on("end", () => {
-									writeStream.end();
-									// Save processed data to lastScreencapData when done
-									lastScreencapData = Buffer.concat(chunks);
+							lastScreencapData = Buffer.concat(chunks);
 
-									const totalFileOpTime = performance.now() - fileOpStartTime;
-									const totalTime = performance.now() - startTime;
+							const totalFileOpTime = performance.now() - fileOpStartTime;
+							const totalTime = performance.now() - startTime;
 
-									emitLog("info", `✅ Screenshot saved to ${filepath}`, "screencap");
-									emitLog("info", `⏱️ File save timing: ${totalFileOpTime.toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`, "screencap");
+							emitLog("info", `✅ Screenshot saved to ${filepath}`, "screencap");
+							emitLog("info", `⏱️ File save timing: ${totalFileOpTime.toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`, "screencap");
 
-									emitter.emit("screencap-saved", {
-										timestamp: new Date().toISOString(),
-										filepath,
-										timing: { fileOperation: totalFileOpTime, total: totalTime }
-									});
+							emitter.emit("screencap-saved", {
+								timestamp: new Date().toISOString(),
+								filepath,
+								timing: { fileOperation: totalFileOpTime, total: totalTime }
+							});
 
-									emitter.emit("screencap-complete", {
-										timestamp: new Date().toISOString(),
-										filepath,
-										processed: true,
-										width,
-										height,
-										timing: { fileOperation: totalFileOpTime, total: totalTime }
-									});
-
-									resolve();
-								});
-
-								processedStream.on("error", (error) => {
-									reject(error);
-								});
+							emitter.emit("screencap-complete", {
+								timestamp: new Date().toISOString(),
+								filepath,
+								processed: true,
+								width,
+								height,
+								timing: { fileOperation: totalFileOpTime, total: totalTime }
 							});
 						} catch (saveError) {
 							// Show full error details for debugging

@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T15:19:17-08:00 (1793575157)
+ *	@Last modified time: 2026-11-01T15:27:16-08:00 (1793575636)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -54,6 +54,36 @@ async function readAll(stream) {
 	for await (const chunk of stream) chunks.push(Buffer.from(chunk));
 	return Buffer.concat(chunks);
 }
+
+/**
+ * When set, the remote's file writes go through a stream that holds the data
+ * and only writes the file in final(), 50ms after it's ended, the way a slow
+ * disk would. Lets a test tell "the stream was ended" apart from "the file
+ * is written".
+ */
+let slowWrites = false;
+
+vi.mock("fs", async (importOriginal) => {
+	const fs = await importOriginal();
+	const { Writable } = await import("node:stream");
+	const createWriteStream = (file, ...rest) => {
+		if (!slowWrites) return fs.createWriteStream(file, ...rest);
+		const chunks = [];
+		return new Writable({
+			write(chunk, _encoding, cb) {
+				chunks.push(chunk);
+				cb();
+			},
+			final(cb) {
+				setTimeout(() => {
+					fs.writeFileSync(file, Buffer.concat(chunks));
+					cb();
+				}, 50);
+			}
+		});
+	};
+	return { ...fs, default: { ...fs, createWriteStream }, createWriteStream };
+});
 
 vi.mock("@devicefarmer/adbkit", () => {
 	const Adb = { createClient: (...args) => createClient(...args), util: { readAll: (s) => readAll(s) } };
@@ -107,6 +137,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.useRealTimers();
+	slowWrites = false;
 });
 
 afterAll(() => {
@@ -590,8 +621,48 @@ describe("screencap", () => {
 		await done;
 
 		expect(await sharp(remote.lastScreencapData).metadata()).toMatchObject({ format: "png", width: 16, height: 8 });
-		// The file stream is ended, not awaited, when the background job reports completion.
-		await vi.waitFor(() => expect(readFileSync(file)).toEqual(remote.lastScreencapData));
+		expect(readFileSync(file)).toEqual(remote.lastScreencapData);
+	});
+
+	test("the resized file is fully written when 'screencap-saved' and 'screencap-complete' fire (#86)", async () => {
+		mkdirSync(scratch, { recursive: true });
+		const file = path.join(scratch, "complete.png");
+		rmSync(file, { force: true });
+		slowWrites = true;
+		const remote = await createRemote(offline());
+		const read = () => (existsSync(file) ? readFileSync(file) : null);
+		const onDisk = {};
+		const done = new Promise((resolve) => {
+			remote.once("screencap-saved", () => (onDisk.saved = read()));
+			remote.once("screencap-complete", () => {
+				onDisk.complete = read();
+				resolve();
+			});
+		});
+
+		await remote.screencap({ width: 16, filepath: file });
+		await done;
+
+		expect(onDisk.saved).toEqual(remote.lastScreencapData);
+		expect(onDisk.complete).toEqual(remote.lastScreencapData);
+		await remote.disconnect();
+	});
+
+	test("a failed write of a resized file emits an error and no completion (#86)", async () => {
+		const file = path.join(scratch, "missing-dir", "resized.png");
+		const remote = await createRemote(offline());
+		const errors = [];
+		const completed = vi.fn();
+		remote.on("error", (e) => errors.push(e));
+		remote.on("screencap-complete", completed);
+
+		await remote.screencap({ width: 16, filepath: file });
+		await remote.disconnect();
+
+		expect(errors).toHaveLength(1);
+		expect(errors[0]).toMatchObject({ source: "screencap", error: expect.objectContaining({ code: "ENOENT" }) });
+		expect(completed).not.toHaveBeenCalled();
+		expect(existsSync(file)).toBe(false);
 	});
 
 	test("a write failure in the background is reported", async () => {

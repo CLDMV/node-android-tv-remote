@@ -6,7 +6,7 @@
 #	@Email: <Shinrai@users.noreply.github.com>
 #	-----
 #	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
-#	@Last modified time: 2026-11-01T12:08:55-08:00 (1793563735)
+#	@Last modified time: 2026-11-01T13:14:17-08:00 (1793567657)
 #	-----
 #	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
@@ -58,10 +58,10 @@ on:
         required: false
         default: "lts/*"
       min_node_version:
-        description: "Minimum Node.js version for matrix testing (default: 22.13.0, the package floor; Node 22.12 warns on require(esm))"
+        description: "Minimum Node.js version for matrix testing (default: 22.22.0, the package floor)"
         type: string
         required: false
-        default: "22.13.0"
+        default: "22.22.0"
       max_node_major:
         description: "Max Node.js major version for the test matrix. Leave blank (the default) to inherit the CLDMV/.github reusable workflow's default; set a value only to pin/override for a specific run."
         type: string
@@ -224,7 +224,7 @@ jobs:
         .gitignore
       debug: ${{ github.event.inputs.debug == 'true' }}
       node_version: ${{ github.event.inputs.node_version || 'lts/*' }}
-      min_node_version: ${{ github.event.inputs.min_node_version || '22.13.0' }}
+      min_node_version: ${{ github.event.inputs.min_node_version || '22.22.0' }}
       max_node_major: ${{ github.event.inputs.max_node_major || '' }} # blank ⇒ inherit the CLDMV/.github reusable default
       # LTS-only matrix (even majors: 20, 22, 24, …) on every event. Odd majors
       # (21, 23, …) are non-LTS interim releases, and the native-binding test

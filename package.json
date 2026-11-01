@@ -3,24 +3,32 @@
 	"version": "2.1.10",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
 	"exports": {
 		".": {
-			"import": "./index.mjs",
-			"require": "./index.cjs"
-		}
+			"node-android-tv-remote-dev": {
+				"import": "./src/index.mjs",
+				"require": "./src/index.cjs"
+			},
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs"
+		},
+		"./package.json": "./package.json"
 	},
 	"scripts": {
 		"postinstall": "node scripts/postinstall.mjs",
 		"setup-device": "node scripts/setup-device.mjs",
-		"build": "echo '✓ no build step'",
-		"build:ci": "echo '✓ no build step'",
+		"build": "tsup",
+		"build:ci": "npm run lint && npm run format:check && npm run build",
+		"prepack": "npm run build",
 		"test": "node tests/run-vitest.mjs && npm run test:cjs",
-		"test:cjs": "node --test tests/cjs/entry.test.cjs",
+		"test:cjs": "npm run build && node --conditions=node-android-tv-remote-dev --test tests/cjs/entry.test.cjs",
 		"test:watch": "vitest --config .configs/vitest.config.mjs",
 		"coverage": "node tests/run-vitest.mjs --coverage-quiet && npm run test:cjs",
 		"ci:coverage": "npm run coverage",
-		"lint": "eslint --config eslint.config.mjs .",
-		"lint:fix": "eslint --config eslint.config.mjs . --fix",
+		"lint": "eslint --config .configs/eslint.config.mjs .",
+		"lint:fix": "eslint --config .configs/eslint.config.mjs . --fix",
 		"format": "prettier --config .prettierrc --write .",
 		"format:check": "prettier --config .prettierrc --check .",
 		"fix:headers": "fix-headers --config .configs/fix-headers.json"
@@ -54,12 +62,10 @@
 	"homepage": "https://github.com/CLDMV/node-android-tv-remote#readme",
 	"license": "Apache-2.0",
 	"files": [
-		"src/",
-		"scripts/",
-		"index.mjs",
-		"index.cjs",
-		"README.md",
-		"package.json"
+		"dist/",
+		"!dist/**/*.map",
+		"types/",
+		"scripts/postinstall.mjs"
 	],
 	"dependencies": {
 		"@devicefarmer/adbkit": "^3.3.8",
@@ -69,7 +75,7 @@
 		"access": "public"
 	},
 	"engines": {
-		"node": ">=20.9.0"
+		"node": ">=22.22.0"
 	},
 	"devDependencies": {
 		"@cldmv/configs": "^1.2.4",
@@ -83,6 +89,8 @@
 		"eslint": "^10.8.0",
 		"globals": "^17.9.0",
 		"prettier": "^3.9.6",
+		"tsup": "^9.0.0",
+		"typescript": "^7.0.2",
 		"vitest": "^5.0.0"
 	}
 }

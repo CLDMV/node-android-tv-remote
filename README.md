@@ -53,8 +53,7 @@ Every remote is an event source: operations report through structured `log` even
 
 ### Requirements
 
-- **Node.js 20.9.0 or higher** for ESM `import` (the package's `engines` floor, set by the `sharp` dependency).
-- **`require()`** loads the ESM build through Node's `require(esm)`, so it needs **Node.js ^20.19.0 or >=22.12.0**. On older Node.js, load the package with `import()` instead.
+- **Node.js >=22.22.0** (the package's `engines` floor). `require()` loads the ESM build through Node's `require(esm)`, which this version supports without warnings.
 - The **Android Debug Bridge (ADB)** binary installed and available in your system PATH (see below). A `postinstall` check prints install instructions when `adb` is missing.
 - `sharp` installs a platform-specific prebuilt binary; the install environment must be able to fetch it.
 
@@ -435,10 +434,21 @@ See [Keyboard Keys](https://github.com/CLDMV/node-android-tv-remote/blob/master/
 Contributions are welcome — open an issue or a pull request on [GitHub](https://github.com/CLDMV/node-android-tv-remote).
 
 ```bash
-npm test          # Vitest, then the CommonJS entry tests
+npm test          # Vitest against src/, then build and run the CommonJS entry tests against dist/
+npm run build     # tsup: src/index.mjs → dist/index.mjs, src/index.cjs copied to dist/index.cjs
 npm run lint      # ESLint
 npm run format    # Prettier
 ```
+
+The published package ships only the built `dist/`. In a checkout, the package name resolves to `dist/` by default (run `npm run build` first) and to `src/` with the `node-android-tv-remote-dev` export condition:
+
+```bash
+node --conditions=node-android-tv-remote-dev app.mjs
+# or once per shell
+export NODE_OPTIONS=--conditions=node-android-tv-remote-dev
+```
+
+The test suite sets the condition itself, so `npm test` always runs against `src/`.
 
 [![Contributors]][contributors_url] [![Sponsor shinrai]][sponsor_url]
 

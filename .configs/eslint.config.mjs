@@ -1,7 +1,7 @@
 /**
  *
  *	@Project: @cldmv/node-android-tv-remote
- *	@Filename: /eslint.config.mjs
+ *	@Filename: /.configs/eslint.config.mjs
  *	@Date: 2025-07-24T08:04:12-07:00 (1753369452)
  *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
@@ -22,7 +22,7 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
 	{
-		ignores: ["node_modules/**", ".git/**", ".vscode/**", "coverage/**", "**/package-lock.json"]
+		ignores: ["node_modules/**", ".git/**", ".vscode/**", "coverage/**", "dist/**", "types/**", "tmp/**", "**/package-lock.json"]
 	},
 	{
 		files: ["**/*.{js,mjs,cjs}"],

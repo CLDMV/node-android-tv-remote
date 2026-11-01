@@ -1,7 +1,7 @@
 /**
  *
  *	@Project: @cldmv/node-android-tv-remote
- *	@Filename: /index.cjs
+ *	@Filename: /src/index.cjs
  *	@Date: 2025-10-15T10:29:19-07:00 (1760549359)
  *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
@@ -16,19 +16,23 @@
 /**
  * CommonJS entry point for @cldmv/node-android-tv-remote
  *
- * This file provides CommonJS (require) support for the Android TV Remote Library.
- * It imports and re-exports the main createRemote function from the ESM module.
+ * A thin, synchronous wrapper around the ESM entry: it loads the sibling index.mjs through
+ * Node's require(esm) and maps it to the historical CommonJS shape (`module.exports` is
+ * createRemote, with createRemote / createAndroidTVRemote / default on it).
  *
- * @module @cldmv/node-android-tv-remote/cjs
+ * tsup.config.mjs copies this file verbatim to dist/index.cjs, so it is never bundled.
+ * Its `require("./index.mjs")` resolves to src/index.mjs in a checkout and to the bundle
+ * in dist/.
+ *
+ * @module @cldmv/node-android-tv-remote
  */
 "use strict";
 
-// index.cjs is a thin wrapper: it loads index.mjs through Node's synchronous require(esm).
-// Node.js versions without require(esm) would fail with a bare ERR_REQUIRE_ESM, so fail
+// Node.js versions without require(esm) (before 20.19 / 22.12) would fail with a bare ERR_REQUIRE_ESM, so fail
 // early with a message that says what to do instead.
 if (!process.features?.require_module) {
 	const error = new Error(
-		`@cldmv/node-android-tv-remote: require() needs Node.js ^20.19.0 or >=22.12.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
+		`@cldmv/node-android-tv-remote: require() needs Node.js ^20.19.0 or >=22.13.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
 	);
 	error.code = "ERR_REQUIRE_ESM";
 	throw error;

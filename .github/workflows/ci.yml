@@ -6,7 +6,7 @@
 #	@Email: <Shinrai@users.noreply.github.com>
 #	-----
 #	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
-#	@Last modified time: 2026-10-02T12:16:05-07:00 (1790968565)
+#	@Last modified time: 2026-11-01T12:08:55-08:00 (1793563735)
 #	-----
 #	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
@@ -250,7 +250,9 @@ jobs:
       lint_fix_command: ${{ github.event.inputs.lint_fix_command || 'npm run lint:fix --if-present' }}
       lint_command: ${{ github.event.inputs.lint_command || 'npm run lint --if-present' }}
       format_check_command: ${{ github.event.inputs.format_check_command || 'npm run format:check --if-present' }}
-      build_command: "echo '✓ no build step'"
+      build_command: "npm run build:ci"
+      # The coverage legs build before measuring; run the real build.
+      coverage_build_command: "npm run build:ci"
       skip_performance_tests: false
       skip_matrix_tests: false
 

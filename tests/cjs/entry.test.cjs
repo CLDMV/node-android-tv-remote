@@ -55,6 +55,6 @@ test("require() fails with a clear message where Node.js has no require(esm)", (
 
 	assert.notEqual(res.status, 0);
 	assert.match(res.stderr, /ERR_REQUIRE_ESM/);
-	assert.match(res.stderr, /require\(\) needs Node\.js \^20\.19\.0 or >=22\.13\.0/);
+	assert.match(res.stderr, /require\(\) needs Node\.js >=22\.13\.0/);
 	assert.match(res.stderr, /import\(\)/);
 });

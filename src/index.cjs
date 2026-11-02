@@ -32,7 +32,7 @@
 // early with a message that says what to do instead.
 if (!process.features?.require_module) {
 	const error = new Error(
-		`@cldmv/node-android-tv-remote: require() needs Node.js ^20.19.0 or >=22.13.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
+		`@cldmv/node-android-tv-remote: require() needs Node.js >=22.13.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
 	);
 	error.code = "ERR_REQUIRE_ESM";
 	throw error;

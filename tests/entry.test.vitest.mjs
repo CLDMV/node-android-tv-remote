@@ -63,7 +63,7 @@ describe("package entry points (source)", () => {
 			expect(() => require(entry)).toThrow(
 				expect.objectContaining({
 					code: "ERR_REQUIRE_ESM",
-					message: expect.stringMatching(/require\(\) needs Node\.js \^20\.19\.0 or >=22\.13\.0 .*import\(\)/)
+					message: expect.stringMatching(/require\(\) needs Node\.js >=22\.13\.0 .*import\(\)/)
 				})
 			);
 		} finally {

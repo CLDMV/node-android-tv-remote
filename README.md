@@ -14,19 +14,17 @@ Every remote is an event source: operations report through structured `log` even
 
 ## ✨ What's New
 
-### Latest: v2.2.0 (November 2026)
+### Latest: v2.2.1 (November 2026)
 
-- **Library layout, tsup build and adbkit 4** — the entries moved to `src/index.mjs` / `src/index.cjs` and tsup builds them into `dist/` (the CommonJS entry is a thin wrapper over the ESM bundle, not a second copy), with a `node-android-tv-remote-dev` condition for working from a checkout. The runtime dependency `@devicefarmer/adbkit` moves to 4.0.1 with no API change for callers ([#81](https://github.com/CLDMV/node-android-tv-remote/pull/81), [#84](https://github.com/CLDMV/node-android-tv-remote/pull/84)).
-- **Node.js `>=22.22.0` is now required** — up from `>=20.9.0`; adbkit 4 itself needs Node.js 22.12 or later. Stay on v2.1.9 if you can't upgrade Node.js.
-- **Fixes** — `waitBootComplete(timeout)` now rejects at its timeout (60 seconds by default) instead of waiting indefinitely, and `screencap()` with a `filepath` reports the file saved only once it is fully written ([#84](https://github.com/CLDMV/node-android-tv-remote/pull/84)).
-- [View full v2.2.0 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.0.md)
+- **`engines.node` is now `>=22.12.0` ([#89](https://github.com/CLDMV/node-android-tv-remote/pull/89))** — v2.2.0 declared `>=22.22.0`, the floor of the development toolchain rather than of the package. The runtime floor is now the one `@devicefarmer/adbkit` 4 and `commander` 15 declare; `require()` needs Node.js 22.13.0 or later. The 22.22.0 toolchain floor moves to `devEngines`, so it only applies when working on this repository. The exported API and behavior are unchanged.
+- [View full v2.2.1 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.1.md)
 
 ### Recent Releases
 
+- **v2.2.0** (November 2026) — library layout with a tsup build into `dist/`, `@devicefarmer/adbkit` 4, `waitBootComplete(timeout)` rejects at its timeout, and `screencap()` reports the file saved only once written; declared Node.js `>=22.22.0` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.0.md))
 - **v2.1.9** (October 2026) — `brace-expansion` security fix in the dev toolchain and dev-tooling bumps; no runtime change ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.9.md))
 - **v2.1.8** (October 2026) — independent event emitters per remote, an unheard `error` no longer crashes the process, `npm run setup-device` works again, relicensed under Apache-2.0 ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md))
 - **v2.1.7** (October 2026) — CommonJS entry loads the ESM build directly, fails clearly without `require(esm)`, and exports `createAndroidTVRemote` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.7.md))
-- **v2.1.6** (October 2026) — CI only: the in-repo PR mirror job runs instead of being skipped; `sharp` lockfile and `@cldmv/vitest-runner` bumps ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.6.md))
 
 > **Note:** v2.1.1 through v2.1.6 were released on GitHub but never published to npm; npm went from v2.1.0 straight to v2.1.7. See the changelogs for what changed in between, including the Node.js 20.9.0 floor from v2.1.1.
 

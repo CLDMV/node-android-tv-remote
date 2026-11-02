@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-10-02T12:16:04-07:00 (1790968564)
+ *	@Last modified time: 2026-11-01T12:08:54-08:00 (1793563734)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -23,6 +23,17 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export default defineConfig({
 	root,
+	resolve: {
+		// Replaces the defaults, so keep the usual ones alongside the package's own
+		// condition (which routes the "." export to src/).
+		conditions: ["node-android-tv-remote-dev", "module", "browser", "development|production"]
+	},
+	ssr: {
+		// Vitest often goes through the SSR resolve pipeline even in node tests.
+		resolve: {
+			conditions: ["node-android-tv-remote-dev", "node", "development|production"]
+		}
+	},
 	test: {
 		include: ["tests/**/*.test.vitest.mjs"],
 		// `test/` (singular) is the pre-existing hardware-interactive/manual
@@ -32,6 +43,9 @@ export default defineConfig({
 		exclude: ["node_modules", "test/**"],
 		environment: "node",
 		testTimeout: 30000,
+		// Workers get the condition on their node CLI (execArgv), so Node's own resolver
+		// loads src/ too.
+		nodeOptions: ["--conditions=node-android-tv-remote-dev"],
 		// @devicefarmer/adbkit is CJS with a nested default-export shape; letting
 		// Vite externalize it (the default for node_modules deps) breaks the
 		// `Adb.createClient` interop under vitest even though it resolves fine

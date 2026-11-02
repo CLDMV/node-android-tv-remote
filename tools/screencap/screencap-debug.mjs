@@ -7,13 +7,13 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-10-02T12:16:21-07:00 (1790968581)
+ *	@Last modified time: 2026-11-01T12:09:08-08:00 (1793563748)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
  */
 
-import { createRemote } from "../../index.mjs";
+import { createRemote } from "../../src/index.mjs";
 
 async function test() {
 	const remote = await createRemote({

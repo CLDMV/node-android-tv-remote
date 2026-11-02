@@ -1,7 +1,7 @@
 /**
  *
  *	@Project: @cldmv/node-android-tv-remote
- *	@Filename: /index.mjs
+ *	@Filename: /src/index.mjs
  *	@Date: 2025-10-15T10:29:19-07:00 (1760549359)
  *	@Author: Nate Corcoran <CLDMV>
  *	@Email: <Shinrai@users.noreply.github.com>
@@ -16,11 +16,11 @@
 /**
  * ES Module entry point for @cldmv/node-android-tv-remote
  *
- * This file provides ES Module (import) support for the Android TV Remote Library.
- * It imports and re-exports the main createRemote function and helper classes.
+ * Re-exports the main createRemote function and createAndroidTVRemote. tsup bundles
+ * this file into dist/index.mjs; src/index.cjs loads it for require().
  *
- * @module @cldmv/node-android-tv-remote/esm
+ * @module @cldmv/node-android-tv-remote
  */
 
-export { default } from "./src/lib/android-tv-remote.mjs";
-export { default as createRemote, createAndroidTVRemote } from "./src/lib/android-tv-remote.mjs";
+export { default } from "./lib/android-tv-remote.mjs";
+export { default as createRemote, createAndroidTVRemote } from "./lib/android-tv-remote.mjs";

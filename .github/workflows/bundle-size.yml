@@ -6,7 +6,7 @@
 #	@Email: <Shinrai@users.noreply.github.com>
 #	-----
 #	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
-#	@Last modified time: 2026-10-02T12:16:05-07:00 (1790968565)
+#	@Last modified time: 2026-11-01T12:08:55-08:00 (1793563735)
 #	-----
 #	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
@@ -39,8 +39,8 @@ jobs:
     uses: CLDMV/.github/.github/workflows/reusable-bundle-size.yml@v4
     with:
       build_command: "npm run build:ci"
-      # Every pattern starts with `*` on purpose: the v4.29.2 measure action matches nothing for a bare top-level file and double-counts files when patterns have different roots.
-      dist_paths: "*index.mjs,*index.cjs,*src/**/*.mjs,*scripts/**"
+      # The published entry points: the tsup bundle and the verbatim CJS wrapper (sourcemaps are not published).
+      dist_paths: "dist/**.mjs,dist/**.cjs"
       # warning_pct: 5
       # warning_bytes: 500
       # comment_mode: "update"

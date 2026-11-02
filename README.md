@@ -54,7 +54,8 @@ Every remote is an event source: operations report through structured `log` even
 
 ### Requirements
 
-- **Node.js >=22.22.0** (the package's `engines` floor). `require()` loads the ESM build through Node's `require(esm)`, which this version supports without warnings.
+- **Node.js >=22.12.0** (the package's `engines` floor; adbkit 4 and its `commander` 15 dependency need it). `require()` loads the ESM build through Node's `require(esm)`, so it needs Node.js ^20.19.0 or >=22.13.0, where `require(esm)` runs without warnings; within the supported range that means 22.13.0 or later.
+- Developing this package needs Node.js 22.22.0 or later (`devEngines`).
 - The **Android Debug Bridge (ADB)** binary installed and available in your system PATH (see below). A `postinstall` check prints install instructions when `adb` is missing.
 - `sharp` installs a platform-specific prebuilt binary; the install environment must be able to fetch it.
 

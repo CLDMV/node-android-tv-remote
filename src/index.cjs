@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T13:14:23-08:00 (1793567663)
+ *	@Last modified time: 2026-11-01T16:31:25-08:00 (1793579485)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -32,7 +32,7 @@
 // early with a message that says what to do instead.
 if (!process.features?.require_module) {
 	const error = new Error(
-		`@cldmv/node-android-tv-remote: require() needs Node.js >=22.22.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
+		`@cldmv/node-android-tv-remote: require() needs Node.js ^20.19.0 or >=22.13.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
 	);
 	error.code = "ERR_REQUIRE_ESM";
 	throw error;

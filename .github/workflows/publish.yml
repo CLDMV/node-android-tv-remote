@@ -6,7 +6,7 @@
 #	@Email: <Shinrai@users.noreply.github.com>
 #	-----
 #	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
-#	@Last modified time: 2026-11-01T13:14:20-08:00 (1793567660)
+#	@Last modified time: 2026-11-01T16:31:22-08:00 (1793579482)
 #	-----
 #	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
 #
@@ -64,7 +64,7 @@ on:
         required: false
         default: true
       min_node_version:
-        description: "Minimum Node.js version for matrix testing (enables matrix when set; default: 22.22.0, the package floor)"
+        description: "Minimum Node.js version for matrix testing (enables matrix when set; default: 22.22.0, the dev toolchain floor from devEngines, not the package's runtime floor)"
         type: string
         required: false
         default: "22.22.0"
@@ -108,6 +108,7 @@ jobs:
       publish_to_github_packages: ${{ github.event.inputs.publish_to_github_packages != 'false' }}
       publish_command: ""
       github_packages_publish_command: ""
+      # Toolchain floor (package.json devEngines), not the package's runtime floor (engines).
       min_node_version: ${{ github.event.inputs.min_node_version || '22.22.0' }}
       max_node_major: ${{ github.event.inputs.max_node_major || '' }} # blank ⇒ inherit the CLDMV/.github reusable default
       test_command: "npm test" # Use defaults: NODE_ENV=development, NODE_OPTIONS=--conditions=development

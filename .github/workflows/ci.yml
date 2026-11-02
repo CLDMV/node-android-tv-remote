@@ -58,7 +58,7 @@ on:
         required: false
         default: "lts/*"
       min_node_version:
-        description: "Minimum Node.js version for matrix testing (default: 22.22.0, the dev toolchain floor from devEngines, not the package's runtime floor)"
+        description: "Minimum Node.js version for matrix testing (default: 22.22.0, the dev toolchain floor; keep it equal to package.json devEngines, not engines)"
         type: string
         required: false
         default: "22.22.0"
@@ -224,7 +224,7 @@ jobs:
         .gitignore
       debug: ${{ github.event.inputs.debug == 'true' }}
       node_version: ${{ github.event.inputs.node_version || 'lts/*' }}
-      # Toolchain floor (package.json devEngines), not the package's runtime floor (engines).
+      # Dev toolchain floor (package.json devEngines), not the package runtime floor (engines).
       min_node_version: ${{ github.event.inputs.min_node_version || '22.22.0' }}
       max_node_major: ${{ github.event.inputs.max_node_major || '' }} # blank ⇒ inherit the CLDMV/.github reusable default
       # LTS-only matrix (even majors: 20, 22, 24, …) on every event. Odd majors

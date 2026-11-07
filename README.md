@@ -52,9 +52,8 @@ Every remote is an event source: operations report through structured `log` even
 
 ### Requirements
 
-- **Node.js >=22.12.0** (the package's `engines` floor; adbkit 4 and its `commander` 15 dependency need it). `require()` loads the ESM build through Node's `require(esm)`, so `require()` needs Node.js >=22.13.0, where `require(esm)` runs without warnings.
+- **Node.js 22.15.0 or higher** (the package's `engines` floor, set by `@cldmv/droidsock`). `require()` loads the ESM build through Node's `require(esm)`, which runs without warnings on that floor.
 - Developing this package needs Node.js 22.22.0 or later (`devEngines`).
-- The **Android Debug Bridge (ADB)** binary installed and available in your system PATH (see below). A `postinstall` check prints install instructions when `adb` is missing.
 - `sharp` installs a platform-specific prebuilt binary; the install environment must be able to fetch it.
 
 ### Install
@@ -63,7 +62,9 @@ Every remote is an event source: operations report through structured `log` even
 npm install @cldmv/node-android-tv-remote
 ```
 
-### Install ADB
+### Install ADB (optional)
+
+The remote talks to the device over its own ADB client (`@cldmv/droidsock`), so the `adb` command-line tool and its server are **not** required. Install them only if you want `adb` for your own use, such as the `setup-device` steps below.
 
 #### Windows
 

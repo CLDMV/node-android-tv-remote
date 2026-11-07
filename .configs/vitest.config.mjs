@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T12:08:54-08:00 (1793563734)
+ *	@Last modified time: 2026-11-07T09:43:10-08:00 (1794073390)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -37,12 +37,6 @@ export default mergeConfig(
 			exclude: ["node_modules", "test/**"],
 			environment: "node",
 			testTimeout: 30000,
-			// @devicefarmer/adbkit is CJS with a nested default-export shape; letting
-			// Vite externalize it (the default for node_modules deps) breaks the
-			// `Adb.createClient` interop under vitest even though it resolves fine
-			// under plain Node ESM. Inlining routes it through Vite's own transform,
-			// which normalizes the interop correctly.
-			server: { deps: { inline: [/@devicefarmer\/adbkit/] } },
 			reporters: ["dot"],
 			coverage: {
 				provider: "v8",

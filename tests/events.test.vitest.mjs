@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-10-03T17:34:50-07:00 (1791074090)
+ *	@Last modified time: 2026-11-07T21:15:49-08:00 (1794114949)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -35,7 +35,7 @@ vi.mock("@devicefarmer/adbkit", () => {
 	return { default: { Adb }, Adb };
 });
 
-const { default: createRemote } = await import("../src/lib/android-tv-remote.mjs");
+const { default: createRemote } = await import("@cldmv/node-android-tv-remote");
 
 /** Config for an offline remote: no auto-connect, no heartbeat timers. */
 const offline = (extra = {}) => ({ ip: "10.0.0.1", autoConnect: false, maintainConnection: false, quiet: false, ...extra });

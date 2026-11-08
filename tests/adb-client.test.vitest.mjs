@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T15:27:16-08:00 (1793575636)
+ *	@Last modified time: 2026-11-07T21:15:48-08:00 (1794114948)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -90,7 +90,7 @@ vi.mock("@devicefarmer/adbkit", () => {
 	return { default: { Adb }, Adb };
 });
 
-const { default: createRemote } = await import("../src/lib/android-tv-remote.mjs");
+const { default: createRemote } = await import("@cldmv/node-android-tv-remote");
 
 const HOST = "10.0.0.1";
 const scratch = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "tmp", "tests-adb-client");

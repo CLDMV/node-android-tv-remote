@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T12:08:54-08:00 (1793563734)
+ *	@Last modified time: 2026-11-07T21:15:36-08:00 (1794114936)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -23,10 +23,10 @@ import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // devCondition() reads the package's "-dev" export condition and sets resolve/ssr conditions plus test.execArgv, so
-// Vite and the Node workers both load src/.
-export default mergeConfig(
-	devCondition({ root }),
-	defineConfig({
+// Vite and the Node workers both load src/. `--mode=dist` (npm run test:dist) leaves it out, so tests that import the
+// package by name run against the build in dist/ instead.
+export default defineConfig(({ mode }) => {
+	const config = defineConfig({
 		root,
 		test: {
 			include: ["tests/**/*.test.vitest.mjs"],
@@ -51,5 +51,6 @@ export default mergeConfig(
 				reporter: ["text", "html", "json-summary", "json"]
 			}
 		}
-	})
-);
+	});
+	return mode === "dist" ? config : mergeConfig(devCondition({ root }), config);
+});

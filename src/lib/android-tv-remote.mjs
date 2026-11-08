@@ -61,7 +61,7 @@
  * @property {boolean} [autoDisconnect=false] - Whether to auto-disconnect after inactivity.
  * @property {number} [disconnectTimeout=10] - Inactivity timeout in seconds before disconnecting.
  * @property {boolean} [maintainConnection=true] - Whether to keep the connection alive: a heartbeat probe plus automatic reconnect with backoff (droidsock `heartbeat` and `autoReconnect`).
- * @property {number} [heartbeatInterval=20000] - Heartbeat interval in ms (default 30s).
+ * @property {number} [heartbeatInterval=20000] - Heartbeat interval in ms (default 20s).
  * @property {number} [connectionCheckInterval] - Deprecated and ignored: dropped connections are now detected by the droidsock socket and heartbeat, and reconnected with backoff.
  * @property {number} [connectTimeout=10000] - Timeout in ms for ADB connection attempts (default 10s).
  * @property {boolean} [quiet=true] - Suppress log events if true (errors are always emitted).

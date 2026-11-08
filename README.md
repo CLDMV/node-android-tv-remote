@@ -14,17 +14,17 @@ Every remote is an event source: operations report through structured `log` even
 
 ## ✨ What's New
 
-### Latest: v2.2.1 (November 2026)
+### Latest: v2.3.0 (November 2026)
 
-- **`engines.node` is now `>=22.12.0` ([#89](https://github.com/CLDMV/node-android-tv-remote/pull/89))** — v2.2.0 declared `>=22.22.0`, the floor of the development toolchain rather than of the package. The runtime floor is now the one `@devicefarmer/adbkit` 4 and `commander` 15 declare; `require()` needs Node.js 22.13.0 or later. The 22.22.0 toolchain floor moves to `devEngines`, so it only applies when working on this repository. The exported API and behavior are unchanged.
-- [View full v2.2.1 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.1.md)
+- **No more `adb` binary ([#95](https://github.com/CLDMV/node-android-tv-remote/pull/95))** — the remote now talks to the device through `@cldmv/droidsock`, its own ADB client, instead of `@devicefarmer/adbkit`, so the `adb` tool and server aren't needed and the install-time `adb` check is gone. `maintainConnection` uses droidsock's heartbeat and automatic reconnect with backoff; `connectionCheckInterval` is ignored. `engines.node` is now `>=22.15.0`. The exported API is unchanged.
+- [View full v2.3.0 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.3.0.md)
 
 ### Recent Releases
 
+- **v2.2.1** (November 2026) — `engines.node` lowered to `>=22.12.0`, the runtime floor; the 22.22.0 toolchain floor moves to `devEngines` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.1.md))
 - **v2.2.0** (November 2026) — library layout with a tsup build into `dist/`, `@devicefarmer/adbkit` 4, `waitBootComplete(timeout)` rejects at its timeout, and `screencap()` reports the file saved only once written; declared Node.js `>=22.22.0` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.0.md))
 - **v2.1.9** (October 2026) — `brace-expansion` security fix in the dev toolchain and dev-tooling bumps; no runtime change ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.9.md))
 - **v2.1.8** (October 2026) — independent event emitters per remote, an unheard `error` no longer crashes the process, `npm run setup-device` works again, relicensed under Apache-2.0 ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md))
-- **v2.1.7** (October 2026) — CommonJS entry loads the ESM build directly, fails clearly without `require(esm)`, and exports `createAndroidTVRemote` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.7.md))
 
 > **Note:** v2.1.1 through v2.1.6 were released on GitHub but never published to npm; npm went from v2.1.0 straight to v2.1.7. See the changelogs for what changed in between, including the Node.js 20.9.0 floor from v2.1.1.
 

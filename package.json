@@ -17,7 +17,6 @@
 		"./package.json": "./package.json"
 	},
 	"scripts": {
-		"postinstall": "node scripts/postinstall.mjs",
 		"setup-device": "node scripts/setup-device.mjs",
 		"build": "tsup",
 		"build:ci": "npm run lint && npm run format:check && npm run build",
@@ -65,18 +64,17 @@
 	"files": [
 		"dist/",
 		"!dist/**/*.map",
-		"types/",
-		"scripts/postinstall.mjs"
+		"types/"
 	],
 	"dependencies": {
-		"@devicefarmer/adbkit": "^4.0.1",
+		"@cldmv/droidsock": "^2.2.0",
 		"sharp": "^0.35.5"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"engines": {
-		"node": ">=22.12.0"
+		"node": ">=22.15.0"
 	},
 	"devEngines": {
 		"runtime": {
@@ -87,7 +85,8 @@
 	},
 	"overrides": {
 		"katex": ">=0.19.1 <1.0.0",
-		"minimatch": "^11.0.3"
+		"minimatch": "^11.0.3",
+		"@cldmv/slothlet": "3.22.1"
 	},
 	"devDependencies": {
 		"@cldmv/configs": "^1.4.0",

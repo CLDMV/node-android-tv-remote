@@ -37,12 +37,6 @@ export default defineConfig(({ mode }) => {
 			exclude: ["node_modules", "test/**"],
 			environment: "node",
 			testTimeout: 30000,
-			// @devicefarmer/adbkit is CJS with a nested default-export shape; letting
-			// Vite externalize it (the default for node_modules deps) breaks the
-			// `Adb.createClient` interop under vitest even though it resolves fine
-			// under plain Node ESM. Inlining routes it through Vite's own transform,
-			// which normalizes the interop correctly.
-			server: { deps: { inline: [/@devicefarmer\/adbkit/] } },
 			reporters: ["dot"],
 			coverage: {
 				provider: "v8",

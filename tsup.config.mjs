@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T16:31:29-08:00 (1793579489)
+ *	@Last modified time: 2026-11-07T09:43:42-08:00 (1794073422)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -21,7 +21,7 @@
  *    transformed by esbuild. It `require()`s ./index.mjs, which Node loads synchronously because the module graph has
  *    no top-level await.
  *
- * Runtime dependencies (`@devicefarmer/adbkit`, `sharp`) stay external (tsup's default for package.json
+ * Runtime dependencies (`@cldmv/droidsock`, `sharp`) stay external (tsup's default for package.json
  * "dependencies"). Sourcemaps are generated for local debugging but excluded from the published tarball via
  * package.json's `files` negation entry.
  */

@@ -434,7 +434,7 @@ See [Keyboard Keys](https://github.com/CLDMV/node-android-tv-remote/blob/master/
 Contributions are welcome — open an issue or a pull request on [GitHub](https://github.com/CLDMV/node-android-tv-remote).
 
 ```bash
-npm test          # Vitest against src/, then build and run the CommonJS entry tests against dist/
+npm test          # Vitest against src/, the CommonJS entry tests and the suite again against the build in dist/
 npm run build     # tsup: src/index.mjs → dist/index.mjs, src/index.cjs copied to dist/index.cjs
 npm run lint      # ESLint
 npm run format    # Prettier
@@ -448,7 +448,7 @@ node --conditions=node-android-tv-remote-dev app.mjs
 export NODE_OPTIONS=--conditions=node-android-tv-remote-dev
 ```
 
-The test suite sets the condition itself, so `npm test` always runs against `src/`.
+The test suite sets the condition itself, so `npm test` runs against `src/`; `npm run test:dist` builds and runs the same suite against `dist/`.
 
 [![Contributors]][contributors_url] [![Sponsor shinrai]][sponsor_url]
 

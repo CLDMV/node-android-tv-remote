@@ -29,7 +29,8 @@ import * as esm from "@cldmv/node-android-tv-remote";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 
-describe("package entry points (source)", () => {
+// These check the source tree (src/index.cjs), so `npm run test:dist` (`--mode=dist`) skips them.
+describe.skipIf(import.meta.env.MODE === "dist")("package entry points (source)", () => {
 	test("the -dev condition resolves the package name to src/", () => {
 		expect(require.resolve("@cldmv/node-android-tv-remote")).toBe(path.join(root, "src", "index.cjs"));
 	});
@@ -63,7 +64,7 @@ describe("package entry points (source)", () => {
 			expect(() => require(entry)).toThrow(
 				expect.objectContaining({
 					code: "ERR_REQUIRE_ESM",
-					message: expect.stringMatching(/require\(\) needs Node\.js >=22\.13\.0 .*import\(\)/)
+					message: expect.stringMatching(/require\(\) needs Node\.js >=22\.15\.0 .*import\(\)/)
 				})
 			);
 		} finally {

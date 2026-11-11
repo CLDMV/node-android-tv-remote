@@ -1,6 +1,6 @@
 {
 	"name": "@cldmv/node-android-tv-remote",
-	"version": "2.2.1",
+	"version": "2.3.0",
 	"description": "A Node.js library for controlling Android TV devices via ADB keycodes and text input.",
 	"type": "module",
 	"main": "./dist/index.cjs",
@@ -17,16 +17,16 @@
 		"./package.json": "./package.json"
 	},
 	"scripts": {
-		"postinstall": "node scripts/postinstall.mjs",
 		"setup-device": "node scripts/setup-device.mjs",
 		"build": "tsup",
 		"build:ci": "npm run lint && npm run format:check && npm run build",
 		"prepack": "npm run build",
-		"test": "node tests/run-vitest.mjs && npm run test:cjs",
+		"test": "node tests/run-vitest.mjs && npm run test:cjs && npm run test:dist",
 		"test:cjs": "npm run build && node --conditions=node-android-tv-remote-dev --test tests/cjs/entry.test.cjs",
+		"test:dist": "npm run build && node tests/run-vitest.mjs --mode=dist",
 		"test:watch": "vitest --config .configs/vitest.config.mjs",
 		"coverage": "node tests/run-vitest.mjs --coverage-quiet && npm run test:cjs",
-		"ci:coverage": "npm run coverage",
+		"ci:coverage": "npm run coverage && npm run test:dist",
 		"lint": "eslint --config .configs/eslint.config.mjs .",
 		"lint:fix": "eslint --config .configs/eslint.config.mjs . --fix",
 		"format": "prettier --config .prettierrc --write .",
@@ -64,18 +64,17 @@
 	"files": [
 		"dist/",
 		"!dist/**/*.map",
-		"types/",
-		"scripts/postinstall.mjs"
+		"types/"
 	],
 	"dependencies": {
-		"@devicefarmer/adbkit": "^4.0.1",
+		"@cldmv/droidsock": "^2.2.0",
 		"sharp": "^0.35.5"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"engines": {
-		"node": ">=22.12.0"
+		"node": ">=22.15.0"
 	},
 	"devEngines": {
 		"runtime": {
@@ -86,10 +85,11 @@
 	},
 	"overrides": {
 		"katex": ">=0.19.1 <1.0.0",
-		"minimatch": "^11.0.3"
+		"minimatch": "^11.0.3",
+		"@cldmv/slothlet": "3.22.1"
 	},
 	"devDependencies": {
-		"@cldmv/configs": "^1.3.0",
+		"@cldmv/configs": "^1.4.0",
 		"@cldmv/fix-headers": "^2.2.4",
 		"@cldmv/vitest-runner": "^1.5.6",
 		"@eslint/css": "^2.0.1",

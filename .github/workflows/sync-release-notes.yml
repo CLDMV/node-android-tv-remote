@@ -38,67 +38,67 @@
 name: 📝 Sync Release Notes
 
 on:
-    release:
-        types: [published]
-    push:
-        branches: [master, main]
-        paths:
-            - "docs/changelog/**"
-            - "docs/changelogs/**"
-    workflow_dispatch:
-        inputs:
-            dry_run:
-                description: "Report only; change nothing"
-                type: boolean
-                required: false
-                default: true
-            versions:
-                description: "Versions to limit the run to (comma/space-separated, e.g. 1.2.0 1.2.2). Empty = all"
-                type: string
-                required: false
-                default: ""
-            publish_drafts:
-                description: "Publish draft releases whose tag exists"
-                type: boolean
-                required: false
-                default: true
-            create_missing_tags:
-                description: "Create missing vX.Y.Z tags at their release commits (bot-signed)"
-                type: boolean
-                required: false
-                default: true
-            create_missing_releases:
-                description: "Create missing GitHub Releases for tagged versions"
-                type: boolean
-                required: false
-                default: false
-            normalize_all:
-                description: "Also tidy bodies of releases with no changelog file"
-                type: boolean
-                required: false
-                default: false
+  release:
+    types: [published]
+  push:
+    branches: [master, main]
+    paths:
+      - "docs/changelog/**"
+      - "docs/changelogs/**"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report only; change nothing"
+        type: boolean
+        required: false
+        default: true
+      versions:
+        description: "Versions to limit the run to (comma/space-separated, e.g. 1.2.0 1.2.2). Empty = all"
+        type: string
+        required: false
+        default: ""
+      publish_drafts:
+        description: "Publish draft releases whose tag exists"
+        type: boolean
+        required: false
+        default: true
+      create_missing_tags:
+        description: "Create missing vX.Y.Z tags at their release commits (bot-signed)"
+        type: boolean
+        required: false
+        default: true
+      create_missing_releases:
+        description: "Create missing GitHub Releases for tagged versions"
+        type: boolean
+        required: false
+        default: false
+      normalize_all:
+        description: "Also tidy bodies of releases with no changelog file"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    sync:
-        # All writes go through the bot App token; GITHUB_TOKEN only reads.
-        permissions:
-            contents: read
-        uses: CLDMV/.github/.github/workflows/workflow-sync-release-notes.yml@v4
-        with:
-            # Automatic runs (release / push) apply changes; manual runs use the switches.
-            dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-            versions: ${{ inputs.versions || '' }}
-            publish_drafts: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_drafts }}
-            create_missing_tags: ${{ github.event_name != 'workflow_dispatch' || inputs.create_missing_tags }}
-            create_missing_releases: ${{ github.event_name == 'workflow_dispatch' && inputs.create_missing_releases }}
-            normalize_all: ${{ github.event_name == 'workflow_dispatch' && inputs.normalize_all }}
-        secrets:
-            BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
-            BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
-            TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
-            TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
-            GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
-            GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}
+  sync:
+    # All writes go through the bot App token; GITHUB_TOKEN only reads.
+    permissions:
+      contents: read
+    uses: CLDMV/.github/.github/workflows/workflow-sync-release-notes.yml@v4
+    with:
+      # Automatic runs (release / push) apply changes; manual runs use the switches.
+      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      versions: ${{ inputs.versions || '' }}
+      publish_drafts: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_drafts }}
+      create_missing_tags: ${{ github.event_name != 'workflow_dispatch' || inputs.create_missing_tags }}
+      create_missing_releases: ${{ github.event_name == 'workflow_dispatch' && inputs.create_missing_releases }}
+      normalize_all: ${{ github.event_name == 'workflow_dispatch' && inputs.normalize_all }}
+    secrets:
+      BOT_APP_CLIENT_ID: ${{ secrets.CLDMV_BOT_APP_CLIENT_ID }}
+      BOT_APP_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_APP_PRIVATE_KEY }}
+      TAGGER_NAME: ${{ secrets.CLDMV_BOT_NAME }}
+      TAGGER_EMAIL: ${{ secrets.CLDMV_BOT_EMAIL }}
+      GPG_PRIVATE_KEY: ${{ secrets.CLDMV_BOT_GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.CLDMV_BOT_GPG_PASSPHRASE }}

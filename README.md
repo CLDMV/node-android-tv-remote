@@ -14,17 +14,17 @@ Every remote is an event source: operations report through structured `log` even
 
 ## ✨ What's New
 
-### Latest: v2.2.1 (November 2026)
+### Latest: v2.3.0 (November 2026)
 
-- **`engines.node` is now `>=22.12.0` ([#89](https://github.com/CLDMV/node-android-tv-remote/pull/89))** — v2.2.0 declared `>=22.22.0`, the floor of the development toolchain rather than of the package. The runtime floor is now the one `@devicefarmer/adbkit` 4 and `commander` 15 declare; `require()` needs Node.js 22.13.0 or later. The 22.22.0 toolchain floor moves to `devEngines`, so it only applies when working on this repository. The exported API and behavior are unchanged.
-- [View full v2.2.1 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.1.md)
+- **No more `adb` binary ([#95](https://github.com/CLDMV/node-android-tv-remote/pull/95))** — the remote now talks to the device through `@cldmv/droidsock`, its own ADB client, instead of `@devicefarmer/adbkit`, so the `adb` tool and server aren't needed and the install-time `adb` check is gone. `maintainConnection` uses droidsock's heartbeat and automatic reconnect with backoff; `connectionCheckInterval` is ignored. `engines.node` is now `>=22.15.0`. The exported API is unchanged.
+- [View full v2.3.0 Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.3.0.md)
 
 ### Recent Releases
 
+- **v2.2.1** (November 2026) — `engines.node` lowered to `>=22.12.0`, the runtime floor; the 22.22.0 toolchain floor moves to `devEngines` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.1.md))
 - **v2.2.0** (November 2026) — library layout with a tsup build into `dist/`, `@devicefarmer/adbkit` 4, `waitBootComplete(timeout)` rejects at its timeout, and `screencap()` reports the file saved only once written; declared Node.js `>=22.22.0` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.2.0.md))
 - **v2.1.9** (October 2026) — `brace-expansion` security fix in the dev toolchain and dev-tooling bumps; no runtime change ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.9.md))
 - **v2.1.8** (October 2026) — independent event emitters per remote, an unheard `error` no longer crashes the process, `npm run setup-device` works again, relicensed under Apache-2.0 ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.8.md))
-- **v2.1.7** (October 2026) — CommonJS entry loads the ESM build directly, fails clearly without `require(esm)`, and exports `createAndroidTVRemote` ([Changelog](https://github.com/CLDMV/node-android-tv-remote/blob/master/docs/changelog/v2/v2.1.7.md))
 
 > **Note:** v2.1.1 through v2.1.6 were released on GitHub but never published to npm; npm went from v2.1.0 straight to v2.1.7. See the changelogs for what changed in between, including the Node.js 20.9.0 floor from v2.1.1.
 
@@ -52,9 +52,8 @@ Every remote is an event source: operations report through structured `log` even
 
 ### Requirements
 
-- **Node.js >=22.12.0** (the package's `engines` floor; adbkit 4 and its `commander` 15 dependency need it). `require()` loads the ESM build through Node's `require(esm)`, so `require()` needs Node.js >=22.13.0, where `require(esm)` runs without warnings.
+- **Node.js 22.15.0 or higher** (the package's `engines` floor, set by `@cldmv/droidsock`). `require()` loads the ESM build through Node's `require(esm)`, which runs without warnings on that floor.
 - Developing this package needs Node.js 22.22.0 or later (`devEngines`).
-- The **Android Debug Bridge (ADB)** binary installed and available in your system PATH (see below). A `postinstall` check prints install instructions when `adb` is missing.
 - `sharp` installs a platform-specific prebuilt binary; the install environment must be able to fetch it.
 
 ### Install
@@ -63,7 +62,9 @@ Every remote is an event source: operations report through structured `log` even
 npm install @cldmv/node-android-tv-remote
 ```
 
-### Install ADB
+### Install ADB (optional)
+
+The remote talks to the device over its own ADB client (`@cldmv/droidsock`), so the `adb` command-line tool and its server are **not** required. Install them only if you want `adb` for your own use, such as the `setup-device` steps below.
 
 #### Windows
 
@@ -434,7 +435,7 @@ See [Keyboard Keys](https://github.com/CLDMV/node-android-tv-remote/blob/master/
 Contributions are welcome — open an issue or a pull request on [GitHub](https://github.com/CLDMV/node-android-tv-remote).
 
 ```bash
-npm test          # Vitest against src/, then build and run the CommonJS entry tests against dist/
+npm test          # Vitest against src/, the CommonJS entry tests and the suite again against the build in dist/
 npm run build     # tsup: src/index.mjs → dist/index.mjs, src/index.cjs copied to dist/index.cjs
 npm run lint      # ESLint
 npm run format    # Prettier
@@ -448,7 +449,7 @@ node --conditions=node-android-tv-remote-dev app.mjs
 export NODE_OPTIONS=--conditions=node-android-tv-remote-dev
 ```
 
-The test suite sets the condition itself, so `npm test` always runs against `src/`.
+The test suite sets the condition itself, so `npm test` runs against `src/`; `npm run test:dist` builds and runs the same suite against `dist/`.
 
 [![Contributors]][contributors_url] [![Sponsor shinrai]][sponsor_url]
 

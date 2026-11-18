@@ -7,49 +7,44 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-11-01T15:27:16-08:00 (1793575636)
+ *	@Last modified time: 2026-11-07T21:15:48-08:00 (1794114948)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
  */
 
 /**
- * Every code path in the remote that calls into @devicefarmer/adbkit: client
- * creation, connect/disconnect, the heartbeat and connection check, shell
- * commands (keys, long presses, text, settings, power state), reboot,
- * screencap/thumbnail and waitBootComplete.
+ * Every code path in the remote that goes through its droidsock client: client
+ * creation, connect/disconnect, shell commands (keys, long presses, text,
+ * settings, power state), reboot, screencap/thumbnail and waitBootComplete.
  *
- * @devicefarmer/adbkit is mocked with the same surface the remote uses, so no
- * ADB server, device or socket is involved. The last block loads the real
- * package and checks that surface still exists there.
+ * @cldmv/droidsock is mocked with the surface the remote uses, so no device or
+ * socket is involved. droidsock.test.vitest.mjs covers the keep-alive options and
+ * lifecycle events, and droidsock-socket.test.vitest.mjs runs the real package.
  */
 
 import { describe, test, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
-import { PassThrough } from "node:stream";
 import { mkdirSync, readFileSync, rmSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 const device = {
+	on: vi.fn(() => device),
+	isConnected: vi.fn(() => true),
 	shell: vi.fn(),
-	reboot: vi.fn(),
-	screencap: vi.fn(),
-	waitBootComplete: vi.fn()
+	reboot: vi.fn()
 };
 
 const client = {
 	connect: vi.fn(),
-	disconnect: vi.fn(),
-	listDevices: vi.fn(),
-	getDevice: vi.fn(() => device)
+	disconnect: vi.fn()
 };
 
-const createClient = vi.fn(() => client);
+const createDroid = vi.fn(async () => ({ device: client }));
 
-/** Collects a stream (or a string the shell mock resolved with) into a Buffer, like adbkit's util.readAll. */
+/** Collects a stream into a Buffer. */
 async function readAll(stream) {
-	if (typeof stream === "string") return Buffer.from(stream);
 	const chunks = [];
 	for await (const chunk of stream) chunks.push(Buffer.from(chunk));
 	return Buffer.concat(chunks);
@@ -85,18 +80,30 @@ vi.mock("fs", async (importOriginal) => {
 	return { ...fs, default: { ...fs, createWriteStream }, createWriteStream };
 });
 
-vi.mock("@devicefarmer/adbkit", () => {
-	const Adb = { createClient: (...args) => createClient(...args), util: { readAll: (s) => readAll(s) } };
-	return { default: { Adb }, Adb };
-});
+vi.mock("@cldmv/droidsock", () => ({ default: (...args) => createDroid(...args) }));
 
-const { default: createRemote } = await import("../src/lib/android-tv-remote.mjs");
+const { default: createRemote } = await import("@cldmv/node-android-tv-remote");
 
 const HOST = "10.0.0.1";
 const scratch = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "tmp", "tests-adb-client");
 
 /** Config for a remote that doesn't connect on creation and runs no timers. */
 const offline = (extra = {}) => ({ ip: HOST, autoConnect: false, maintainConnection: false, quiet: false, ...extra });
+
+/** A remote from offline() that has connected, so its shell calls reach the device. */
+async function online(extra) {
+	const remote = await createRemote(offline(extra));
+	await remote.connect();
+	return remote;
+}
+
+/** Every shell command the device has received. */
+const sentCommands = () => device.shell.mock.calls.map(([cmd]) => cmd);
+
+/** Makes the shell answer `screencap -p` the way droidsock does, as a latin1 string, and every other command with `other`. */
+function shellWithScreen(other = "") {
+	device.shell.mockImplementation(async (cmd) => (cmd === "screencap -p" ? png.toString("latin1") : other));
+}
 
 /** Collects every log event a remote emits. */
 function logsOf(remote) {
@@ -112,27 +119,19 @@ const png = await sharp({ create: { width: 64, height: 32, channels: 3, backgrou
 	.png()
 	.toBuffer();
 
-/** A stream that yields the PNG, the way device.screencap() resolves. */
-function pngStream() {
-	const s = new PassThrough();
-	s.end(png);
-	return s;
-}
-
 /** Shell output for `dumpsys power`. */
 const dumpsys = (powered, wakefulness, ready) =>
 	`POWER MANAGER\n  mIsPowered=${powered}\n  mWakefulness=${wakefulness}\n  mDisplayReady=${ready}\n`;
 
 beforeEach(() => {
-	createClient.mockClear();
-	client.getDevice.mockClear();
-	client.connect.mockReset().mockResolvedValue("10.0.0.1:5555");
-	client.disconnect.mockReset().mockResolvedValue(device);
-	client.listDevices.mockReset().mockResolvedValue([]);
-	device.shell.mockReset().mockResolvedValue("");
+	createDroid.mockClear();
+	client.connect.mockReset().mockResolvedValue(device);
+	client.disconnect.mockReset().mockReturnValue(true);
+	device.on.mockClear();
+	device.isConnected.mockReset().mockReturnValue(true);
+	device.shell.mockReset();
+	shellWithScreen();
 	device.reboot.mockReset().mockResolvedValue(true);
-	device.screencap.mockReset().mockImplementation(async () => pngStream());
-	device.waitBootComplete.mockReset().mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -145,18 +144,18 @@ afterAll(() => {
 });
 
 describe("client creation", () => {
-	test("creates the client with the default timeout and targets ip:5555", async () => {
-		await createRemote(offline());
+	test("creates the client with the default timeout and connects to ip:5555", async () => {
+		await online();
 
-		expect(createClient).toHaveBeenCalledWith({ timeout: 10000 });
-		expect(client.getDevice).toHaveBeenCalledWith(`${HOST}:5555`);
+		expect(createDroid).toHaveBeenCalledWith({ config: { timeout: 10000 } });
+		expect(client.connect).toHaveBeenCalledWith(HOST, 5555, {});
 	});
 
 	test("passes connectTimeout and a custom port through", async () => {
-		await createRemote(offline({ port: 5556, connectTimeout: 2500 }));
+		await online({ port: 5556, connectTimeout: 2500 });
 
-		expect(createClient).toHaveBeenCalledWith({ timeout: 2500 });
-		expect(client.getDevice).toHaveBeenCalledWith(`${HOST}:5556`);
+		expect(createDroid).toHaveBeenCalledWith({ config: { timeout: 2500 } });
+		expect(client.connect).toHaveBeenCalledWith(HOST, 5556, {});
 	});
 
 	test("rejects a config without an ip", async () => {
@@ -165,31 +164,21 @@ describe("client creation", () => {
 });
 
 describe("initial auto-connect", () => {
-	test("a device already in listDevices counts as connected without calling connect", async () => {
-		client.listDevices.mockResolvedValue([{ id: `${HOST}:5555`, type: "device" }]);
-
+	test("connects on creation", async () => {
 		const remote = await createRemote({ ip: HOST, maintainConnection: false });
-
-		expect(remote.isConnected).toBe(true);
-		expect(client.connect).not.toHaveBeenCalled();
 		await expect(remote.initPromise).resolves.toBeUndefined();
-	});
-
-	test("a device missing from listDevices is connected with client.connect(ip, port)", async () => {
-		const remote = await createRemote({ ip: HOST, maintainConnection: false });
-
-		expect(client.connect).toHaveBeenCalledWith(HOST, 5555);
-		expect(remote.isConnected).toBe(true);
-		await expect(remote.initPromise).resolves.toBeUndefined();
-	});
-
-	test("a listDevices failure reports 'unknown' and still tries to connect", async () => {
-		client.listDevices.mockRejectedValue(new Error("adb server down"));
-
-		const remote = await createRemote({ ip: HOST, maintainConnection: false });
 
 		expect(client.connect).toHaveBeenCalledTimes(1);
 		expect(remote.isConnected).toBe(true);
+	});
+
+	test("a failed connection rejects initPromise", async () => {
+		client.connect.mockRejectedValue(new Error("connect ETIMEDOUT"));
+
+		const remote = await createRemote({ ip: HOST, maintainConnection: false });
+
+		await expect(remote.initPromise).rejects.toThrow("Failed to connect to device on initialization.");
+		expect(remote.isConnected).toBe(false);
 	});
 });
 
@@ -203,14 +192,6 @@ describe("connect", () => {
 
 		expect(client.connect).toHaveBeenCalledTimes(1);
 		expect(messages(logs)).toEqual([`Connected to ${HOST}:5555`, `Already connected to ${HOST}:5555`]);
-	});
-
-	test("an 'already connected' error from adb counts as connected", async () => {
-		client.connect.mockRejectedValue(new Error("already connected to 10.0.0.1:5555"));
-		const remote = await createRemote(offline());
-
-		await expect(remote.connect()).resolves.toBe(true);
-		expect(remote.isConnected).toBe(true);
 	});
 
 	test("an unauthorized device gets the authorization hints", async () => {
@@ -227,15 +208,26 @@ describe("connect", () => {
 		expect(messages(logs).some((m) => m.includes("accept the authorization dialog"))).toBe(true);
 	});
 
-	test("a refused connection gets the enable-ADB steps", async () => {
-		client.connect.mockRejectedValue(new Error("connect ECONNREFUSED: actively refused"));
+	test("droidsock's failed authentication gets the authorization hints", async () => {
+		client.connect.mockRejectedValue(new Error("Authentication failed - expected CNXN (4e584e43) or OKAY (59414b4f), got 0"));
 		const remote = await createRemote(offline());
 		const logs = logsOf(remote);
 		remote.on("error", () => {});
 
 		await remote.connect();
 
-		expect(messages(logs)).toContain("6. On your computer, run: adb connect <device-ip>:5555");
+		expect(messages(logs).some((m) => m.includes("accept the authorization dialog"))).toBe(true);
+	});
+
+	test("a refused connection gets the enable-ADB steps", async () => {
+		client.connect.mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.1:5555"));
+		const remote = await createRemote(offline());
+		const logs = logsOf(remote);
+		remote.on("error", () => {});
+
+		await remote.connect();
+
+		expect(messages(logs)).toContain("6. Connect again with remote.connect()");
 	});
 
 	test("supports the callback style", async () => {
@@ -260,7 +252,9 @@ describe("disconnect", () => {
 	});
 
 	test("an 'already disconnected' error still counts as disconnected", async () => {
-		client.disconnect.mockRejectedValue(new Error("device disconnected"));
+		client.disconnect.mockImplementation(() => {
+			throw new Error("device disconnected");
+		});
 		const remote = await createRemote(offline());
 		await remote.connect();
 
@@ -270,7 +264,9 @@ describe("disconnect", () => {
 
 	test("any other error is returned and reported", async () => {
 		const failure = new Error("socket hang up");
-		client.disconnect.mockRejectedValue(failure);
+		client.disconnect.mockImplementation(() => {
+			throw failure;
+		});
 		const remote = await createRemote(offline());
 		const errors = [];
 		remote.on("error", (e) => errors.push(e));
@@ -281,66 +277,18 @@ describe("disconnect", () => {
 });
 
 describe("connection status", () => {
-	test("getConnectionStatus(true) follows listDevices", async () => {
+	test("getConnectionStatus(true) follows the live socket", async () => {
 		const remote = await createRemote(offline());
 
-		client.listDevices.mockResolvedValue([{ id: `${HOST}:5555` }]);
+		expect(await remote.getConnectionStatus(true)).toBe("disconnected");
+
+		await remote.connect();
 		expect(await remote.getConnectionStatus(true)).toBe("connected");
 		expect(await remote.getConnectionStatus()).toBe("connected");
 
-		client.listDevices.mockResolvedValue([{ id: "other:5555" }]);
+		device.isConnected.mockReturnValue(false);
 		expect(await remote.getConnectionStatus(true)).toBe("disconnected");
-
-		client.listDevices.mockRejectedValue(new Error("boom"));
-		expect(await remote.getConnectionStatus(true)).toBe("unknown");
 		expect(remote.isConnected).toBe(false);
-	});
-});
-
-describe("heartbeat and connection check", () => {
-	test("sends a heartbeat shell command and reconnects when the device drops out of listDevices", async () => {
-		vi.useFakeTimers();
-		const remote = await createRemote(offline({ maintainConnection: true, heartbeatInterval: 1000, connectionCheckInterval: 5000 }));
-		const logs = logsOf(remote);
-		await remote.connect();
-
-		await vi.advanceTimersByTimeAsync(1000);
-		expect(device.shell).toHaveBeenCalledWith("echo heartbeat");
-
-		await vi.advanceTimersByTimeAsync(4000);
-		expect(client.listDevices).toHaveBeenCalled();
-		expect(client.connect).toHaveBeenCalledTimes(2);
-		expect(messages(logs)).toContain(`Device ${HOST}:5555 not found in adb devices list. Attempting reconnect...`);
-
-		await remote.disconnect();
-	});
-
-	test("a failing heartbeat is ignored and a failing listDevices is logged as a warning", async () => {
-		vi.useFakeTimers();
-		device.shell.mockRejectedValue(new Error("closed"));
-		client.listDevices.mockRejectedValue(new Error("adb server gone"));
-		const remote = await createRemote(offline({ maintainConnection: true, heartbeatInterval: 1000, connectionCheckInterval: 1000 }));
-		const logs = logsOf(remote);
-		await remote.connect();
-
-		await vi.advanceTimersByTimeAsync(1000);
-
-		expect(logs).toContainEqual(
-			expect.objectContaining({ level: "warn", message: "Error checking device connection: adb server gone", source: "connectionCheck" })
-		);
-		await remote.disconnect();
-	});
-
-	test("a device still listed keeps the connection as is", async () => {
-		vi.useFakeTimers();
-		client.listDevices.mockResolvedValue([{ id: `${HOST}:5555` }]);
-		const remote = await createRemote(offline({ maintainConnection: true, connectionCheckInterval: 1000 }));
-		await remote.connect();
-
-		await vi.advanceTimersByTimeAsync(1000);
-
-		expect(client.connect).toHaveBeenCalledTimes(1);
-		await remote.disconnect();
 	});
 });
 
@@ -354,7 +302,7 @@ describe("auto-disconnect", () => {
 			disconnectTimeout: 2,
 			maintainConnection: false
 		});
-		client.listDevices.mockResolvedValue([]);
+		await remote.initPromise;
 
 		await remote.inputKeycode(3);
 		expect(client.disconnect).not.toHaveBeenCalled();
@@ -362,55 +310,71 @@ describe("auto-disconnect", () => {
 		await vi.advanceTimersByTimeAsync(2000);
 		expect(client.disconnect).toHaveBeenCalledWith(HOST, 5555);
 	});
+
+	test("another command restarts the idle timer", async () => {
+		vi.useFakeTimers();
+		const remote = await createRemote({ ip: HOST, autoDisconnect: true, disconnectTimeout: 2, maintainConnection: false });
+		await remote.initPromise;
+
+		await remote.inputKeycode(3);
+		await vi.advanceTimersByTimeAsync(1500);
+		await remote.inputKeycode(3);
+		await vi.advanceTimersByTimeAsync(1500);
+		expect(client.disconnect).not.toHaveBeenCalled();
+
+		await vi.advanceTimersByTimeAsync(500);
+		expect(client.disconnect).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("shell commands", () => {
 	test("inputKeycode auto-connects and sends 'input keyevent'", async () => {
 		const remote = await createRemote({ ip: HOST, autoConnect: true, maintainConnection: false });
+		await remote.initPromise;
 		client.connect.mockClear();
 		await remote.disconnect();
 
 		await remote.inputKeycode(26);
 
 		expect(client.connect).toHaveBeenCalledTimes(1);
-		expect(device.shell).toHaveBeenCalledWith("input keyevent 26");
+		expect(sentCommands()).toEqual(["input keyevent 26"]);
 	});
 
 	test("press keys map onto keycodes", async () => {
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		for (const key of ["ok", "up", "down", "left", "right", "play", "pause", "mute", "input", "home"]) {
 			await remote.press[key]();
 		}
 
-		const sent = device.shell.mock.calls.map(([cmd]) => cmd);
+		const sent = sentCommands();
 		expect(sent).toHaveLength(10);
 		for (const cmd of sent) expect(cmd).toMatch(/^input keyevent \d+$/);
 	});
 
 	test("long presses send a sendevent down/up pair on the input device", async () => {
-		const remote = await createRemote(offline({ inputDevice: "/dev/input/event3" }));
+		const remote = await online({ inputDevice: "/dev/input/event3" });
 
 		for (const key of ["ok", "up", "down", "left", "right", "play", "pause", "mute", "input", "home"]) {
 			await remote.press.long[key]();
 		}
 
-		const sent = device.shell.mock.calls.map(([cmd]) => cmd);
+		const sent = sentCommands();
 		expect(sent).toHaveLength(10);
 		for (const cmd of sent)
 			expect(cmd).toMatch(/^sendevent \/dev\/input\/event3 1 \d+ 1 && sleep 1 && sendevent \/dev\/input\/event3 1 \d+ 0$/);
 	});
 
 	test("keyboard.text escapes spaces for 'input text'", async () => {
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		await remote.keyboard.text("hello big world");
 
-		expect(device.shell).toHaveBeenCalledWith('input text "hello%sbig%sworld"');
+		expect(sentCommands()).toEqual(['input text "hello%sbig%sworld"']);
 	});
 
 	test("keyboard keys go out as text, as keycodes or shifted", async () => {
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		await remote.keyboard.key("a");
 		await remote.keyboard.key("a", { forceKeycode: true });
@@ -419,7 +383,7 @@ describe("shell commands", () => {
 		await remote.keyboard.key.a.keycode();
 		await remote.keyboard.key.shift.a();
 
-		const sent = device.shell.mock.calls.map(([cmd]) => cmd);
+		const sent = sentCommands();
 		expect(sent[0]).toBe('input text "a"');
 		expect(sent[1]).toMatch(/^input keyevent \d+$/);
 		expect(sent[2]).toBe('input text "a"');
@@ -428,9 +392,16 @@ describe("shell commands", () => {
 		expect(sent[5]).toBe('input text "A"');
 	});
 
+	test("a command on a remote that never connected rejects", async () => {
+		const remote = await createRemote(offline());
+
+		await expect(remote.inputKeycode(3)).rejects.toThrow("Device not connected");
+		expect(device.shell).not.toHaveBeenCalled();
+	});
+
 	test("a shell failure rejects the command and supports the callback style", async () => {
 		device.shell.mockRejectedValue(new Error("closed"));
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		await expect(remote.inputKeycode(3)).rejects.toThrow("closed");
 		const err = await new Promise((resolve) => remote.inputKeycode(3, (e) => resolve(e)));
@@ -440,11 +411,11 @@ describe("shell commands", () => {
 
 describe("setSettings", () => {
 	test("'set' writes the core and additional settings", async () => {
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		await remote.setSettings();
 
-		const sent = device.shell.mock.calls.map(([cmd]) => cmd);
+		const sent = sentCommands();
 		expect(sent).toEqual([
 			"settings put system screen_off_timeout 2147483647",
 			"settings put secure sleep_timeout 0",
@@ -455,9 +426,9 @@ describe("setSettings", () => {
 		]);
 	});
 
-	test("'get' reads each core setting through readAll", async () => {
+	test("'get' reads each core setting", async () => {
 		device.shell.mockImplementation(async (cmd) => (cmd.endsWith("sleep_timeout") ? "0\n" : "42\n"));
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const logs = logsOf(remote);
 
 		await remote.setSettings("get");
@@ -469,7 +440,7 @@ describe("setSettings", () => {
 
 	test("a shell failure is reported and rethrown", async () => {
 		device.shell.mockRejectedValue(new Error("permission denied"));
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const errors = [];
 		remote.on("error", (e) => errors.push(e));
 
@@ -481,10 +452,10 @@ describe("setSettings", () => {
 describe("ensureAwake", () => {
 	test("a device that is already awake needs no keycodes", async () => {
 		device.shell.mockResolvedValue(dumpsys("true", "Awake", "true"));
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		await expect(remote.ensureAwake()).resolves.toBe(true);
-		expect(device.shell.mock.calls.map(([c]) => c)).toEqual(["dumpsys power", "dumpsys power"]);
+		expect(sentCommands()).toEqual(["dumpsys power", "dumpsys power"]);
 	});
 
 	test("a sleeping device gets POWER and WAKEUP and is checked again", async () => {
@@ -495,20 +466,20 @@ describe("ensureAwake", () => {
 			reads += 1;
 			return reads === 1 ? dumpsys("false", "Asleep", "false") : dumpsys("true", "Awake", "true");
 		});
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		const result = remote.ensureAwake();
 		await vi.advanceTimersByTimeAsync(5000);
 
 		await expect(result).resolves.toBe(true);
-		const keyevents = device.shell.mock.calls.map(([c]) => c).filter((c) => c.startsWith("input keyevent"));
+		const keyevents = sentCommands().filter((c) => c.startsWith("input keyevent"));
 		expect(keyevents).toHaveLength(3);
 	});
 
 	test("a device that stays asleep resolves false and reports the issues", async () => {
 		vi.useFakeTimers();
 		device.shell.mockImplementation(async (cmd) => (cmd === "dumpsys power" ? "nothing useful" : ""));
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const errors = [];
 		remote.on("error", (e) => errors.push(e));
 
@@ -521,7 +492,7 @@ describe("ensureAwake", () => {
 
 	test("a shell failure is reported and rethrown", async () => {
 		device.shell.mockRejectedValue(new Error("closed"));
-		const remote = await createRemote(offline());
+		const remote = await online();
 		remote.on("error", () => {});
 
 		await expect(remote.ensureAwake()).rejects.toThrow("closed");
@@ -529,10 +500,9 @@ describe("ensureAwake", () => {
 });
 
 describe("reboot", () => {
-	test("calls device.reboot() and drops the connection a second later", async () => {
+	test("calls reboot on the device and drops the connection a second later", async () => {
 		vi.useFakeTimers();
-		const remote = await createRemote(offline());
-		await remote.connect();
+		const remote = await online();
 
 		await expect(remote.reboot()).resolves.toBe(true);
 		expect(device.reboot).toHaveBeenCalledTimes(1);
@@ -544,7 +514,7 @@ describe("reboot", () => {
 
 	test("a timeout while rebooting counts as success", async () => {
 		device.reboot.mockRejectedValue(new Error("socket timeout"));
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		await expect(remote.reboot()).resolves.toBe(true);
 	});
@@ -555,7 +525,7 @@ describe("reboot", () => {
 		["permission denied", "Permission denied - reboot may require root access on some devices"]
 	])("a '%s' failure is reported and rethrown", async (msg, hint) => {
 		device.reboot.mockRejectedValue(new Error(msg));
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const logs = logsOf(remote);
 		remote.on("error", () => {});
 
@@ -565,8 +535,8 @@ describe("reboot", () => {
 });
 
 describe("screencap", () => {
-	test("returns the raw PNG stream from device.screencap()", async () => {
-		const remote = await createRemote(offline());
+	test("returns the PNG from 'screencap -p' as a stream", async () => {
+		const remote = await online();
 		const events = [];
 		for (const name of ["screencap-start", "screencap-captured", "screencap-ready", "screencap-complete"]) {
 			remote.on(name, () => events.push(name));
@@ -580,7 +550,7 @@ describe("screencap", () => {
 	});
 
 	test("resizes through sharp when a width is given", async () => {
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		const stream = await remote.screencap({ width: 32 });
 		const meta = await sharp(await readAll(stream)).metadata();
@@ -589,7 +559,7 @@ describe("screencap", () => {
 	});
 
 	test("thumbnail defaults to 240px wide without upscaling", async () => {
-		const remote = await createRemote(offline());
+		const remote = await online();
 
 		const stream = await remote.thumbnail({ height: 8 });
 		const meta = await sharp(await readAll(stream)).metadata();
@@ -600,7 +570,7 @@ describe("screencap", () => {
 	test("saves the raw PNG to a file in the background", async () => {
 		mkdirSync(scratch, { recursive: true });
 		const file = path.join(scratch, "raw.png");
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const saved = new Promise((resolve) => remote.once("screencap-saved", resolve));
 
 		await expect(remote.screencap({ filepath: file })).resolves.toBeUndefined();
@@ -613,7 +583,7 @@ describe("screencap", () => {
 	test("saves a resized PNG to a file, and disconnect waits for it", async () => {
 		mkdirSync(scratch, { recursive: true });
 		const file = path.join(scratch, "small.png");
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const done = new Promise((resolve) => remote.once("screencap-complete", resolve));
 
 		await remote.screencap({ width: 16, filepath: file });
@@ -629,7 +599,7 @@ describe("screencap", () => {
 		const file = path.join(scratch, "complete.png");
 		rmSync(file, { force: true });
 		slowWrites = true;
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const read = () => (existsSync(file) ? readFileSync(file) : null);
 		const onDisk = {};
 		const done = new Promise((resolve) => {
@@ -650,7 +620,7 @@ describe("screencap", () => {
 
 	test("a failed write of a resized file emits an error and no completion (#86)", async () => {
 		const file = path.join(scratch, "missing-dir", "resized.png");
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const errors = [];
 		const completed = vi.fn();
 		remote.on("error", (e) => errors.push(e));
@@ -667,7 +637,7 @@ describe("screencap", () => {
 
 	test("a write failure in the background is reported", async () => {
 		const file = path.join(scratch, "missing-dir", "nope.png");
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const errors = [];
 		remote.on("error", (e) => errors.push(e));
 
@@ -684,8 +654,8 @@ describe("screencap", () => {
 		["screencap failed", "Screencap utility may not be available - automatic fallback to framebuffer attempted"],
 		["ENOENT: no such file", "File path error: ENOENT: no such file"]
 	])("a '%s' failure is reported and rethrown", async (msg, hint) => {
-		device.screencap.mockRejectedValue(new Error(msg));
-		const remote = await createRemote(offline());
+		device.shell.mockRejectedValue(new Error(msg));
+		const remote = await online();
 		const logs = logsOf(remote);
 		remote.on("error", () => {});
 
@@ -695,81 +665,61 @@ describe("screencap", () => {
 });
 
 describe("waitBootComplete", () => {
-	test("resolves with device.waitBootComplete()'s result", async () => {
-		const remote = await createRemote(offline());
+	test("resolves true once sys.boot_completed reads 1", async () => {
+		device.shell.mockResolvedValue("1\n");
+		const remote = await online();
 
 		await expect(remote.waitBootComplete()).resolves.toBe(true);
-		expect(device.waitBootComplete).toHaveBeenCalledTimes(1);
+		expect(sentCommands()).toEqual(["getprop sys.boot_completed"]);
 	});
 
-	test("passes the timeout to adbkit as an AbortSignal (#85)", async () => {
-		const remote = await createRemote(offline());
+	test("hands the time left to the shell, so a hung device can't outlast the timeout (#85)", async () => {
+		device.shell.mockResolvedValue("1\n");
+		const remote = await online();
 
 		await remote.waitBootComplete(1234);
 
-		const [options] = device.waitBootComplete.mock.calls[0];
-		expect(options.signal).toBeInstanceOf(AbortSignal);
-		expect(options.signal.aborted).toBe(false);
+		const [, options] = device.shell.mock.calls[0];
+		expect(options.timeout).toBeGreaterThan(0);
+		expect(options.timeout).toBeLessThanOrEqual(1234);
 	});
 
 	test("gives up once the timeout passes instead of waiting for the device (#85)", async () => {
-		// Like adbkit 4: the wait rejects with signal.reason when the signal aborts.
-		// Without a signal it would only finish when the device does, after 2s here.
-		device.waitBootComplete.mockImplementation(
-			(options) =>
-				new Promise((resolve, reject) => {
-					const finished = setTimeout(() => resolve(true), 2000);
-					options?.signal?.addEventListener("abort", () => {
-						clearTimeout(finished);
-						reject(options.signal.reason);
-					});
-				})
+		// Like droidsock: the shell rejects when its own timeout runs out.
+		device.shell.mockImplementation(
+			(cmd, options) => new Promise((_, reject) => setTimeout(() => reject(new Error(`Command timeout: ${cmd}`)), options.timeout))
 		);
-		const remote = await createRemote(offline());
+		const remote = await online();
 		const logs = logsOf(remote);
 		remote.on("error", () => {});
+		const started = Date.now();
 
-		await expect(remote.waitBootComplete(50)).rejects.toMatchObject({ name: "TimeoutError" });
+		await expect(remote.waitBootComplete(50)).rejects.toThrow("Boot completion timeout after 50ms");
+
+		expect(Date.now() - started).toBeLessThan(1000);
 		expect(messages(logs)).toContain("Boot completion timeout after 50ms - device may still be starting");
 	});
 
-	test.each([
-		["unauthorized", "Device unauthorized - ensure ADB debugging is enabled and device is authorized"],
-		["device not found", "Device not found - check IP address and ADB connection"],
-		["timeout", "Boot completion timeout after 5000ms - device may still be starting"],
-		["connection reset", "Connection lost while waiting for boot completion"]
-	])("a '%s' failure is reported and rethrown", async (msg, hint) => {
-		device.waitBootComplete.mockRejectedValue(new Error(msg));
-		const remote = await createRemote(offline());
+	test("doesn't sleep past the timeout between polls (#85)", async () => {
+		device.shell.mockResolvedValue("0\n");
+		const remote = await online();
+		remote.on("error", () => {});
+		const started = Date.now();
+
+		await expect(remote.waitBootComplete(50)).rejects.toThrow("Boot completion timeout");
+
+		expect(Date.now() - started).toBeLessThan(1000);
+	});
+
+	test("an unauthorized device fails right away with the hint", async () => {
+		device.shell.mockRejectedValue(new Error("device unauthorized"));
+		const remote = await online();
 		const logs = logsOf(remote);
 		remote.on("error", () => {});
 
-		await expect(remote.waitBootComplete(5000)).rejects.toThrow(msg);
-		expect(messages(logs)).toContain(hint);
-	});
-});
+		await expect(remote.waitBootComplete(5000)).rejects.toThrow("device unauthorized");
 
-describe("the real @devicefarmer/adbkit still has the surface the remote uses", () => {
-	test("client, device and util methods exist and return native promises", async () => {
-		const real = await vi.importActual("@devicefarmer/adbkit");
-		const Adb = real.Adb ?? real.default?.Adb ?? real.default;
-
-		expect(typeof Adb.createClient).toBe("function");
-		expect(typeof Adb.util.readAll).toBe("function");
-
-		const realClient = Adb.createClient({ timeout: 1000 });
-		for (const name of ["connect", "disconnect", "listDevices", "getDevice"]) {
-			expect(typeof realClient[name]).toBe("function");
-		}
-		const realDevice = realClient.getDevice(`${HOST}:5555`);
-		for (const name of ["shell", "reboot", "screencap", "waitBootComplete"]) {
-			expect(typeof realDevice[name]).toBe("function");
-		}
-
-		const stream = new PassThrough();
-		const read = Adb.util.readAll(stream);
-		stream.end("hello");
-		expect(read).toBeInstanceOf(Promise);
-		expect((await read).toString()).toBe("hello");
+		expect(device.shell).toHaveBeenCalledTimes(1);
+		expect(messages(logs)).toContain("Device unauthorized - ensure ADB debugging is enabled and device is authorized");
 	});
 });

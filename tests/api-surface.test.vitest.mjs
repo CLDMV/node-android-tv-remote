@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-10-02T12:16:16-07:00 (1790968576)
+ *	@Last modified time: 2026-11-07T21:15:49-08:00 (1794114949)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -21,7 +21,7 @@
  */
 
 import { describe, test, expect } from "vitest";
-import createRemote from "../src/lib/android-tv-remote.mjs";
+import createRemote from "@cldmv/node-android-tv-remote";
 
 describe("android-tv-remote api surface", () => {
 	test("getKeyboardKeys returns all top-level function keys from keyboard.key", async () => {

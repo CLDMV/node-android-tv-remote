@@ -7,7 +7,7 @@
  *	@Email: <Shinrai@users.noreply.github.com>
  *	-----
  *	@Last modified by: Nate Corcoran <CLDMV> (Shinrai@users.noreply.github.com)
- *	@Last modified time: 2026-10-03T17:34:50-07:00 (1791074090)
+ *	@Last modified time: 2026-11-07T21:15:49-08:00 (1794114949)
  *	-----
  *	@Copyright: Copyright (c) 2013-2026 Catalyzed Motivation Inc. All rights reserved.
  *
@@ -18,32 +18,29 @@
  * and an `error` event with no listener never crashes the process — it goes to
  * the `log` channel and the pending promise instead (#44).
  *
- * @devicefarmer/adbkit is mocked, so no ADB server, device or socket is used.
+ * @cldmv/droidsock is mocked, so no ADB server, device or socket is used.
  */
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
 
+const leaf = { on: vi.fn(), isConnected: vi.fn(() => true), shell: vi.fn(async () => "") };
 const client = {
 	connect: vi.fn(),
-	disconnect: vi.fn(),
-	listDevices: vi.fn(),
-	getDevice: vi.fn(() => ({ shell: vi.fn(async () => "") }))
+	disconnect: vi.fn()
 };
 
-vi.mock("@devicefarmer/adbkit", () => {
-	const Adb = { createClient: () => client, util: { readAll: async (x) => Buffer.from(String(x)) } };
-	return { default: { Adb }, Adb };
-});
+vi.mock("@cldmv/droidsock", () => ({
+	default: async () => ({ device: { connect: (ip, port, options) => client.connect(ip, port, options), disconnect: client.disconnect } })
+}));
 
-const { default: createRemote } = await import("../src/lib/android-tv-remote.mjs");
+const { default: createRemote } = await import("@cldmv/node-android-tv-remote");
 
 /** Config for an offline remote: no auto-connect, no heartbeat timers. */
 const offline = (extra = {}) => ({ ip: "10.0.0.1", autoConnect: false, maintainConnection: false, quiet: false, ...extra });
 
 beforeEach(() => {
-	client.connect.mockReset().mockResolvedValue(true);
-	client.disconnect.mockReset().mockResolvedValue(true);
-	client.listDevices.mockReset().mockResolvedValue([]);
+	client.connect.mockReset().mockResolvedValue(leaf);
+	client.disconnect.mockReset().mockReturnValue(true);
 });
 
 describe("per-instance event emitter (#43)", () => {

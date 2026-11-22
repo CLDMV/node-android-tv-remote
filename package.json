@@ -67,7 +67,7 @@
 		"types/"
 	],
 	"dependencies": {
-		"@cldmv/droidsock": "^2.2.0",
+		"@cldmv/droidsock": "^2.2.1",
 		"sharp": "^0.35.5"
 	},
 	"publishConfig": {
@@ -85,8 +85,7 @@
 	},
 	"overrides": {
 		"katex": ">=0.19.1 <1.0.0",
-		"minimatch": "^11.0.3",
-		"@cldmv/slothlet": "3.22.1"
+		"minimatch": "^11.0.3"
 	},
 	"devDependencies": {
 		"@cldmv/configs": "^1.4.0",

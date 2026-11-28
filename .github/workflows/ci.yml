@@ -158,25 +158,24 @@ on:
         default: true
 
 # Concurrency policy, by context:
-#   - FEATURE branches / feature PRs → cancel superseded runs (per-ref group +
-#     cancel-in-progress): a newer push makes the older run redundant.
-#   - RELEASE-relevant contexts → NEVER superseded. Pushes to the release base
-#     branch (derived: the CLDMV_RELEASE_BASE var → the repo's default branch),
-#     to next/hotfixes, and the next/hotfixes → base release PRs each get a
-#     UNIQUE group per run (run_id appended), so nothing cancels them. During
-#     the burst of pushes a release makes to next/hotfixes (the feature squash,
-#     the post-hotfix base→next sync merge, the bot's `chore: bump version`),
-#     every run completes and posts a GREEN check instead of the earlier one
-#     being cancelled into a red X on the release PR. A bare
+#   - The release base branch (derived: the CLDMV_RELEASE_BASE var → the
+#     repo's default branch) → NEVER superseded. Each push there is a release,
+#     so every run gets a UNIQUE group (run_id appended) and completes. A bare
 #     `cancel-in-progress: false` is NOT enough — GitHub still cancels the
 #     middle PENDING run when a newer one queues; a unique group avoids it.
+#   - Everything else (feature branches and PRs, next, hotfixes, the
+#     next/hotfixes → base release PRs) → cancel superseded runs (per-ref
+#     group + cancel-in-progress). The newest commit is the one that ships,
+#     and its run covers everything before it. CI status ownership means the
+#     release PR only waits on its head's run, so a cancelled older run no
+#     longer shows on it, and the commit-subjects check on next/hotfixes
+#     compares the whole branch against the base, so a cancelled push's
+#     commits still get checked by the next run. Never-cancelled runs on
+#     next/hotfixes once took every hosted job slot in the org (#583).
 # The base is NOT hardcoded to master/main — it derives the same way
 # resolve-release-base does (CLDMV_RELEASE_BASE override → default_branch).
-# next/hotfixes are the flow's fixed integration-branch names. github.head_ref
-# is set only on pull_request (the release PR's head → next/hotfixes);
-# github.ref carries the branch on push.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}${{ (github.ref == format('refs/heads/{0}', vars.CLDMV_RELEASE_BASE != '' && vars.CLDMV_RELEASE_BASE || github.event.repository.default_branch) || github.ref == 'refs/heads/next' || github.ref == 'refs/heads/hotfixes' || github.head_ref == 'next' || github.head_ref == 'hotfixes') && format('-{0}', github.run_id) || '' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}${{ github.ref == format('refs/heads/{0}', vars.CLDMV_RELEASE_BASE != '' && vars.CLDMV_RELEASE_BASE || github.event.repository.default_branch) && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 # Workflow-level: matches the broadest write surface the called

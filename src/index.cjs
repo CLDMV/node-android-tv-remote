@@ -16,20 +16,17 @@
 /**
  * CommonJS entry point for @cldmv/node-android-tv-remote
  *
- * A thin, synchronous wrapper around the ESM entry: it loads the sibling index.mjs through
- * Node's require(esm) and maps it to the historical CommonJS shape (`module.exports` is
- * createRemote, with createRemote / createAndroidTVRemote / default on it).
+ * The generic CLDMV shim: a thin, synchronous wrapper around the ESM entry that loads the sibling index.mjs through
+ * Node's require(esm). The ESM entry exports two distinct values (createRemote, also the default, and createAndroidTVRemote),
+ * so require() returns the module object: `{ __esModule, default: createRemote, createRemote, createAndroidTVRemote }`.
  *
  * tsup.config.mjs copies this file verbatim to dist/index.cjs, so it is never bundled.
- * Its `require("./index.mjs")` resolves to src/index.mjs in a checkout and to the bundle
- * in dist/.
+ * Its `require("./index.mjs")` resolves to src/index.mjs in a checkout and to the bundle in dist/.
  *
  * @module @cldmv/node-android-tv-remote
  */
 "use strict";
 
-// Node.js versions without require(esm) (before 20.19 / 22.12) would fail with a bare ERR_REQUIRE_ESM, so fail
-// early with a message that says what to do instead.
 if (!process.features?.require_module) {
 	const error = new Error(
 		`@cldmv/node-android-tv-remote: require() needs Node.js >=22.15.0 (this is ${process.version}). On older Node.js, load the package with import() instead.`
@@ -38,9 +35,12 @@ if (!process.features?.require_module) {
 	throw error;
 }
 
-const { default: createRemote, createAndroidTVRemote } = require("./index.mjs");
-
-module.exports = createRemote;
-module.exports.createRemote = createRemote;
-module.exports.createAndroidTVRemote = createAndroidTVRemote;
-module.exports.default = createRemote;
+// Same exports as `import`. One distinct exported value (aliases of it count once) comes back as that value,
+// so require(x)(...) works; anything else comes back as the module object ({ default, ...named }).
+const esm = require("./index.mjs");
+const values = new Set(
+	Object.keys(esm)
+		.filter((key) => key !== "__esModule")
+		.map((key) => esm[key])
+);
+module.exports = values.size === 1 ? values.values().next().value : esm;

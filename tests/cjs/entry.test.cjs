@@ -31,18 +31,22 @@ const { pathToFileURL } = require("node:url");
 const repoRoot = path.resolve(__dirname, "../..");
 const dist = path.join(repoRoot, "dist");
 
-test("require() returns the same createRemote object as import", async () => {
-	const createRemote = require(path.join(dist, "index.cjs"));
+test("require() returns the module object, matching import", async () => {
+	const cjs = require(path.join(dist, "index.cjs"));
 	const esm = await import(pathToFileURL(path.join(dist, "index.mjs")).href);
 
 	// createRemote opens an ADB connection when called, so only identity/type is
 	// checked here - no sockets are opened in this test.
-	assert.equal(typeof createRemote, "function");
-	assert.equal(createRemote, esm.default);
-	assert.equal(createRemote.createRemote, esm.default);
-	assert.equal(createRemote.default, esm.default);
-	assert.equal(typeof createRemote.createAndroidTVRemote, "function");
-	assert.equal(createRemote.createAndroidTVRemote, esm.createAndroidTVRemote);
+	assert.equal(typeof cjs, "object");
+	assert.deepEqual(Object.keys(cjs).sort(), ["__esModule", "createAndroidTVRemote", "createRemote", "default"]);
+	assert.equal(typeof cjs.createRemote, "function");
+	assert.equal(cjs.createRemote, cjs.default);
+	assert.equal(cjs.default, esm.default);
+	assert.equal(cjs.createRemote, esm.createRemote);
+	assert.equal(typeof cjs.createAndroidTVRemote, "function");
+	assert.equal(cjs.createAndroidTVRemote, esm.createAndroidTVRemote);
+	// The old CJS-only alias is gone.
+	assert.equal(cjs.create, undefined);
 });
 
 test("require() fails with a clear message where Node.js has no require(esm)", () => {

@@ -42,16 +42,18 @@ describe.skipIf(import.meta.env.MODE === "dist")("package entry points (source)"
 		expect(typeof esm.createAndroidTVRemote).toBe("function");
 	});
 
-	test("src/index.cjs maps the ESM entry to the CommonJS shape", () => {
-		const createRemote = require(path.join(root, "src", "index.cjs"));
+	test("src/index.cjs returns the module object the ESM entry exports", () => {
+		const cjs = require(path.join(root, "src", "index.cjs"));
 		// require() loads its own copy of the ESM graph outside Vite's module runner, so
-		// compare shape and names rather than object identity.
-		expect(typeof createRemote).toBe("function");
-		expect(createRemote.name).toBe(esm.default.name);
-		expect(createRemote.createRemote).toBe(createRemote);
-		expect(createRemote.default).toBe(createRemote);
-		expect(typeof createRemote.createAndroidTVRemote).toBe("function");
-		expect(createRemote.createAndroidTVRemote.name).toBe(esm.createAndroidTVRemote.name);
+		// compare shape and names rather than object identity with the imported namespace.
+		expect(typeof cjs).toBe("object");
+		expect(Object.keys(cjs).sort()).toEqual(["__esModule", "createAndroidTVRemote", "createRemote", "default"]);
+		expect(typeof cjs.createRemote).toBe("function");
+		expect(cjs.createRemote).toBe(cjs.default);
+		expect(cjs.createRemote.name).toBe(esm.default.name);
+		expect(typeof cjs.createAndroidTVRemote).toBe("function");
+		expect(cjs.createAndroidTVRemote.name).toBe(esm.createAndroidTVRemote.name);
+		expect(cjs.create).toBeUndefined();
 	});
 
 	test("src/index.cjs fails with a clear message where Node.js has no require(esm)", () => {

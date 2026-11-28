@@ -102,7 +102,7 @@ The remote talks to the device over its own ADB client (`@cldmv/droidsock`), so 
 import createRemote from "@cldmv/node-android-tv-remote";
 
 // CommonJS
-const createRemote = require("@cldmv/node-android-tv-remote");
+const { createRemote } = require("@cldmv/node-android-tv-remote");
 
 // Create remote (async function)
 const remote = await createRemote({ ip: "192.168.1.100" });

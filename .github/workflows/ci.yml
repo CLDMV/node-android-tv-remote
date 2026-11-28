@@ -33,11 +33,12 @@ on:
     branches-ignore: [badges, gh-pages]
   # `pull_request` covers two cases:
   #   - Fork PRs (push doesn't fire upstream for fork commits).
-  #   - Release PRs from `next` / `hotfixes` → `master`. Their head SHA is
-  #     a bot `chore: bump version` commit that workflow-ci.yml's
-  #     `commit-gate` job filters out on the push path, so without the
-  #     pull_request fallback the release PR's `Required PR Check`
-  #     status never gets posted and the ruleset blocks the merge.
+  #   - Release PRs from `next` / `hotfixes` → `master` whose head SHA is
+  #     the bot's `chore: bump version` commit. workflow-ci.yml's
+  #     `commit-gate` job skips the matrix for that commit on the push path,
+  #     so the release PR's run is the one that tests it. Any other release
+  #     PR head was tested by its push run, and the pull_request run skips
+  #     CI (see the `status-owner` job).
   # `branches:` includes the v4 integration branches so PRs targeting
   # `next` / `hotfixes` get CI too — feature PRs from forks would
   # otherwise get nothing. Non-fork feature PRs still skip the
@@ -141,7 +142,7 @@ on:
         required: false
         default: "npm run test:types"
       skip_type_check:
-        description: "Skip the type-check step in the coverage-badge job"
+        description: "Skip the type check (the Type Check job and the coverage jobs' type-check step)"
         type: boolean
         required: false
         default: false
@@ -157,25 +158,24 @@ on:
         default: true
 
 # Concurrency policy, by context:
-#   - FEATURE branches / feature PRs → cancel superseded runs (per-ref group +
-#     cancel-in-progress): a newer push makes the older run redundant.
-#   - RELEASE-relevant contexts → NEVER superseded. Pushes to the release base
-#     branch (derived: the CLDMV_RELEASE_BASE var → the repo's default branch),
-#     to next/hotfixes, and the next/hotfixes → base release PRs each get a
-#     UNIQUE group per run (run_id appended), so nothing cancels them. During
-#     the burst of pushes a release makes to next/hotfixes (the feature squash,
-#     the post-hotfix base→next sync merge, the bot's `chore: bump version`),
-#     every run completes and posts a GREEN check instead of the earlier one
-#     being cancelled into a red X on the release PR. A bare
+#   - The release base branch (derived: the CLDMV_RELEASE_BASE var → the
+#     repo's default branch) → NEVER superseded. Each push there is a release,
+#     so every run gets a UNIQUE group (run_id appended) and completes. A bare
 #     `cancel-in-progress: false` is NOT enough — GitHub still cancels the
 #     middle PENDING run when a newer one queues; a unique group avoids it.
+#   - Everything else (feature branches and PRs, next, hotfixes, the
+#     next/hotfixes → base release PRs) → cancel superseded runs (per-ref
+#     group + cancel-in-progress). The newest commit is the one that ships,
+#     and its run covers everything before it. CI status ownership means the
+#     release PR only waits on its head's run, so a cancelled older run no
+#     longer shows on it, and the commit-subjects check on next/hotfixes
+#     compares the whole branch against the base, so a cancelled push's
+#     commits still get checked by the next run. Never-cancelled runs on
+#     next/hotfixes once took every hosted job slot in the org (#583).
 # The base is NOT hardcoded to master/main — it derives the same way
 # resolve-release-base does (CLDMV_RELEASE_BASE override → default_branch).
-# next/hotfixes are the flow's fixed integration-branch names. github.head_ref
-# is set only on pull_request (the release PR's head → next/hotfixes);
-# github.ref carries the branch on push.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}${{ (github.ref == format('refs/heads/{0}', vars.CLDMV_RELEASE_BASE != '' && vars.CLDMV_RELEASE_BASE || github.event.repository.default_branch) || github.ref == 'refs/heads/next' || github.ref == 'refs/heads/hotfixes' || github.head_ref == 'next' || github.head_ref == 'hotfixes') && format('-{0}', github.run_id) || '' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}${{ github.ref == format('refs/heads/{0}', vars.CLDMV_RELEASE_BASE != '' && vars.CLDMV_RELEASE_BASE || github.event.repository.default_branch) && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 # Workflow-level: matches the broadest write surface the called
@@ -189,25 +189,38 @@ permissions:
   contents: read
 
 jobs:
+  # Decide whether this run owns `✅ Required PR Check` for its head SHA.
+  # Push runs and fork PRs always do. A release PR (head `next` / `hotfixes`)
+  # does only when its head commit is the bot's `chore: bump version`, which
+  # the push run's commit-gate skips; any other head was already tested by
+  # its push run, so running the full matrix again would only double the
+  # release's wait (CLDMV/.github#531). In-repo feature PRs never do. The
+  # pull_request payload doesn't carry the head commit's message, so this is
+  # a job (one API read) rather than an `if:` expression. A lookup failure
+  # fails safe: the run owns the status and tests the SHA.
+  status-owner:
+    name: 🧭 CI Status Owner
+    runs-on: ${{ vars.RUNS_ON_DEFAULT != '' && vars.RUNS_ON_DEFAULT || ((github.repository_owner == 'CLDMV' && github.event.repository.private) && 'cldmv-runners' || 'ubuntu-latest') }}
+    permissions:
+      contents: read
+    outputs:
+      owns: ${{ steps.owner.outputs.owns }}
+    steps:
+      - name: Decide who reports Required PR Check
+        id: owner
+        uses: CLDMV/.github/.github/actions/common/steps/ci-status-owner@v4
+
   ci:
     permissions:
       contents: write
       pull-requests: write
     name: 🏗️ Continuous Integration
-    # Run on pull_request when:
-    #   - The PR is from a fork (push doesn't fire upstream for fork commits).
-    #   - The PR is a v4 release PR — head ref is `next` or `hotfixes`
-    #     targeting `master`/`main`. Push-event CI on the head SHA is
-    #     unreliable for these because workflow-ci.yml's `commit-gate`
-    #     filters out the bot's `chore: bump version` commit, so without
-    #     this fallback the release PR's `Required PR Check` never posts.
-    # Other (in-repo, non-release) PRs skip — the push event on the head
-    # branch already ran CI and posted status to the SHA.
-    if: |
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.fork == true ||
-      github.event.pull_request.head.ref == 'next' ||
-      github.event.pull_request.head.ref == 'hotfixes'
+    # Runs when this run owns the head SHA's Required PR Check (see
+    # `status-owner`): every push, fork PRs, and release PRs whose head is
+    # the bot's `chore: bump version`. Other PRs skip; the push run on the
+    # head branch already ran CI and posted status to the SHA.
+    needs: status-owner
+    if: needs.status-owner.outputs.owns == 'true'
     uses: CLDMV/.github/.github/workflows/workflow-ci.yml@v4
     with:
       package_name: "@cldmv/node-android-tv-remote" # Required: replace with your NPM package name
@@ -326,16 +339,18 @@ jobs:
     #     conditional name on a skippable job shows up as the raw expression
     #     text (#350).
     # So the job never skips: it runs on every path, the name expression is
-    # always evaluated, and the in-repo PR path lands on a readable,
-    # non-required name and passes as a no-op. The condition below is
-    # repeated in the step's OWNS_STATUS and must stay identical. The paths
-    # that own the status:
-    #   1. push events                                            (job needs CI run)
-    #   2. fork PRs                                               (push doesn't cover forks)
-    #   3. release PRs from `next` → master/main                  (push covers SHA but commit-gate skips chore-bump)
-    #   4. release PRs from `hotfixes` → master/main              (same reason)
-    name: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == true || github.event.pull_request.head.ref == 'next' || github.event.pull_request.head.ref == 'hotfixes') && '✅ Required PR Check' || '⏭️ Required PR Check (reported by the push run)' }}
-    needs: ci
+    # always evaluated, and a PR whose push run owns the status lands on a
+    # readable, non-required name and passes as a no-op. The condition
+    # below is repeated in the step's OWNS_STATUS and must stay identical.
+    # The paths that own the status (decided by `status-owner`):
+    #   1. push events                                   (job needs CI run)
+    #   2. fork PRs                                      (push doesn't cover forks)
+    #   3. release PRs whose head is `chore: bump version` (commit-gate skips it on push)
+    # Push events own it even if `status-owner` failed, and a failed
+    # `status-owner` on a PR claims the real name so the failure shows red
+    # on the PR instead of hiding behind the no-op name.
+    name: ${{ (github.event_name != 'pull_request' || needs.status-owner.result != 'success' || needs.status-owner.outputs.owns == 'true') && '✅ Required PR Check' || '⏭️ Required PR Check (reported by the push run)' }}
+    needs: [status-owner, ci]
     # always(): run even when `ci` is skipped (the in-repo PR path) or failed
     # (so the mirror can report red).
     if: always()
@@ -352,24 +367,38 @@ jobs:
     steps:
       - name: Mirror reusable result
         env:
-          OWNS_STATUS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == true || github.event.pull_request.head.ref == 'next' || github.event.pull_request.head.ref == 'hotfixes' }}
+          OWNS_STATUS: ${{ github.event_name != 'pull_request' || needs.status-owner.result != 'success' || needs.status-owner.outputs.owns == 'true' }}
+          OWNER_RESULT: ${{ needs.status-owner.result }}
           IS_MASTER_SYNC: ${{ needs.ci.outputs.is_master_sync }}
           DOCS_ONLY: ${{ needs.ci.outputs.docs_only }}
+          NO_NODE: ${{ needs.ci.outputs.no_node }}
           CI_RESULT: ${{ needs.ci.result }}
         run: |
-          # In-repo feature PR: the push run on the head branch reports
-          # `✅ Required PR Check`. This job runs under the
+          # In-repo PR whose head SHA the push run tested (a feature PR, or
+          # a release PR at anything but the bump commit): the push run
+          # reports `✅ Required PR Check`. This job runs under the
           # `⏭️ Required PR Check (reported by the push run)` name and
           # must not gate anything.
           if [ "$OWNS_STATUS" != "true" ]; then
             echo "In-repo PR event — the push run reports ✅ Required PR Check for this SHA."
             exit 0
           fi
-          echo "ci.result=$CI_RESULT  docs_only=$DOCS_ONLY  is_master_sync=$IS_MASTER_SYNC"
+          # The ownership decision itself failed; ci never ran.
+          if [ "$OWNER_RESULT" != "success" ]; then
+            echo "🧭 CI Status Owner did not succeed ($OWNER_RESULT), so CI didn't run; treating as failure."
+            exit 1
+          fi
+          echo "ci.result=$CI_RESULT  docs_only=$DOCS_ONLY  is_master_sync=$IS_MASTER_SYNC  no_node=$NO_NODE"
           # next/hotfixes was force-synced to master — head SHA matches the
           # default branch, nothing new to test, green-light without running CI.
           if [ "$IS_MASTER_SYNC" = "true" ]; then
             echo "Branch tip matches master — Required PR Check passes without running CI."
+            exit 0
+          fi
+          # Repo has no Node project (`node_project: false`) — the reusable
+          # skipped the Node chain on purpose and exported no_node=true.
+          if [ "$NO_NODE" = "true" ]; then
+            echo "No Node project (node_project: false) — Required PR Check passes without running the Node chain."
             exit 0
           fi
           # Docs-only PR — the reusable skipped the heavy chain and exported
